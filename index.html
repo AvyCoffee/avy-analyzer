@@ -1,0 +1,2367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="robots" content="noindex, nofollow">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roast Analyzer v4.5.1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f3f0; }
+        body.modal-open { overflow: hidden; }
+        .input-section, .output-section {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 1.5rem;
+        }
+        .sensory-panel, .strategy-panel, .units-panel, .cost-breakdown-panel {
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .sensory-panel { border: 1px solid #d1d5db; background-color: #f9fafb; }
+        .cost-breakdown-panel { border: 1px solid #d1d5db; background-color: #f9fafb; }
+        .strategy-panel { border: 1px solid #15803d; background-color: #f0fdf4; }
+        .strategy-panel strong { color: #166534; }
+       
+        .units-panel {
+            border: 1px solid #d1d5db;
+            background-color: #f9fafb;
+            margin-bottom: 1.5rem;
+        }
+        .unit-toggle {
+            display: inline-flex;
+            border-radius: 9999px;
+            background-color: #e5e7eb;
+            padding: 0.25rem;
+        }
+        .unit-toggle button {
+            padding: 0.25rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-radius: 9999px;
+            color: #4b5563;
+            transition: all 0.2s ease-in-out;
+            border: 2px solid transparent;
+        }
+        .unit-toggle button.active {
+            background-color: #ffffff;
+            color: #111827;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+       
+        .input-section label {
+            display: block;
+            margin-top: 0.75rem;
+            font-weight: 600;
+            color: #4b5563;
+        }
+        .input-section input, .input-section select, .input-section textarea {
+            width: 100%;
+            padding: 0.5rem;
+            margin-top: 0.25rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        textarea { resize: vertical; }
+        .oz-display { font-size: 0.875rem; color: #6b7280; }
+        .modal { transition: opacity 0.25s ease; }
+        .modal-content { transition: all 0.25s ease; }
+       
+        .modal-body {
+            overflow-y: auto;
+            max-height: 85vh;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1.5fr repeat(4, 1fr);
+            gap: 0.75rem;
+            align-items: center;
+        }
+        .settings-grid-header {
+            font-weight: bold;
+            color: #374151;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+        .settings-grid input {
+            font-size: 0.875rem;
+            padding: 0.35rem;
+            background-color: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            width: 100%;
+        }
+       
+        .bean-grid {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 1rem;
+            align-items: center;
+        }
+        .bean-grid label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-align: right;
+            color: #374151;
+        }
+        .bean-grid input {
+            font-size: 0.9rem;
+            margin-top: 0;
+            padding: 0.5rem;
+        }
+       
+        #historyList { max-height: 60vh; overflow-y: auto; }
+        .history-item {
+            display: grid;
+            grid-template-columns: 30px 1fr 1fr 1fr 1fr 80px 80px;
+            gap: 1rem;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .history-item:hover { background-color: #f9fafb; }
+        .history-header {
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #6b7280;
+        }
+        .fav-star {
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            transition: all 0.1s ease;
+        }
+        .fav-star.is-favorite { color: #facc15; }
+        .fav-star.not-favorite { color: #cbd5e1; }
+        .fav-star:hover { transform: scale(1.2); }
+
+        #toast-notification {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="toast-notification" class="hidden fixed top-5 right-5 z-50 p-4 rounded-lg shadow-lg text-white transition-all duration-300 ease-in-out opacity-0 translate-x-full">
+        <span id="toast-message"></span>
+    </div>
+    <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Coffee Roast Analyzer (v4.5.1)</h1>
+    <input type="file" id="importFile" class="hidden" accept=".json">
+    <input type="file" id="artisanFile" class="hidden" accept=".json">
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+        <div class="input-section">
+            <div class="flex justify-between items-center mb-4 border-b pb-2 flex-nowrap">
+                <h2 class="text-xl font-semibold text-gray-700 flex-shrink-0">Roast Input Data</h2>
+                <div class="flex gap-2 items-center flex-shrink-0">
+                   <button id="historyBtn" onclick="openModal('historyModal'); renderHistoryList();" class="text-sm bg-purple-600 text-white font-semibold h-9 px-4 flex items-center rounded-lg hover:bg-purple-700 transition duration-150">History</button>
+                  <button id="beansBtn" onclick="openModal('beanModal'); if(window.renderBeanLibrary) renderBeanLibrary();" class="text-sm bg-blue-600 text-white font-semibold h-9 px-4 flex items-center rounded-lg hover:bg-blue-700 transition duration-150">Beans</button>
+                <button id="customersBtn" onclick="openModal('customerModal'); if(window.renderCustomerList) renderCustomerList();" class="text-sm bg-orange-600 text-white font-semibold h-9 px-4 flex items-center rounded-lg hover:bg-orange-700 transition duration-150">Customers</button>
+                    <button id="settingsButton" onclick="openModal('settingsModal');" class="text-sm bg-gray-600 text-white font-semibold w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-700 transition duration-150 flex-shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" /></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="roastName">Roast Name:</label>
+                    <input type="text" id="roastName" placeholder="e.g., Roast - 11/10/2025" oninput="setFormDirty()">
+                </div>
+                <div id="customer-wrapper">
+                    <div class="flex justify-between items-end">
+                        <label for="customerSelect">Customer (Optional):</label>
+                        <a href="#" id="quickCustHistory" class="text-xs text-orange-600 hover:underline mb-1 hidden" onclick="event.preventDefault(); openQuickHistory()">View History</a>
+                    </div>
+                    <select id="customerSelect" onchange="setFormDirty(); toggleQuickHistoryLink()">
+                        <option value="">-- Select a Customer --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mt-4">
+                <div>
+                    <label for="beansUsed">Beans Used:</label>
+                    <select id="beansUsed" onchange="handleBeanSelection(); generateRoRGuide();">
+                        <option value="">-- Select a Bean --</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="targetRoastLevel">Target Roast Level:</label>
+                    <select id="targetRoastLevel" onchange="setFormDirty(); generateRoRGuide();">
+                        <option value="Flavoring">Flavoring Base (Neutral)</option>
+                        <option value="Light">Light (Specialty)</option>
+                        <option value="Medium">Medium (City+)</option>
+                        <option value="Dark">Dark (Full City+)</option>
+                        <option value="Italian">Italian Roast</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 mt-4">
+                <div>
+                    <label for="startWeight">Start Weight (g):</label>
+                    <input type="number" id="startWeight" placeholder="e.g., 410" oninput="setFormDirty()">
+                </div>
+                <div>
+                    <label for="endWeight">End Weight (g):</label>
+                    <input type="number" id="endWeight" placeholder="e.g., 340" oninput="updateOunces()">
+                    <p class="oz-display" id="oz-display-p">In Ounces: <span id="endWeightOz">-</span></p>
+                </div>
+                <div>
+                    <label for="beanCost" id="beanCostLabel">Green Cost:</label>
+                    <input type="number" id="beanCost" placeholder="Auto-fills" class="bg-gray-100" readonly>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label for="firstCrackTime">First Crack Time (e.g., 8:54):</label>
+                    <input type="text" id="firstCrackTime" placeholder="M:SS or 854 or 9" oninput="setFormDirty()">
+                </div>
+                <div>
+                    <label for="dropTime">Drop Time (e.g., 11:41):</label>
+                    <input type="text" id="dropTime" oninput="setFormDirty();" placeholder="00:00" class="...">
+                </div>
+                <div>
+                    <label for="unitsPackaged">Units Packaged:</label>
+                    <input type="number" id="unitsPackaged" placeholder="e.g., 3" class="mt-1" oninput="setFormDirty()">
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <label class="block text-sm font-bold text-gray-700 mb-1">Roast Log & Target Guide:</label>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <textarea id="roastData" rows="10" class="w-full text-sm font-mono p-2 border rounded" 
+                            placeholder="Enter one temp per line... or paste Artisan JSON" oninput="generateRoRGuide(); setFormDirty();"></textarea>
+                        <p class="text-[14px] text-black-400 mt-1">Capture a temperature every 30 seconds.</p>
+                    </div>
+                    <div id="rorGuideContainer" class="bg-gray-50 border rounded p-2 overflow-y-auto max-h-[225px]">
+                        <div class="text-[10px] font-bold text-gray-400 uppercase border-b pb-1 mb-1 flex justify-between px-1">
+                            <span>Time</span>
+                            <span>Target</span>
+                            <span>RoR</span>
+                        </div>
+                        <div id="rorGuideList" class="text-xs font-mono space-y-1">
+                            <p class="text-gray-400 italic p-2">Select a bean to see the guide...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <label for="roastNotes">Roast Notes:</label>
+            <textarea id="roastNotes" rows="4" placeholder="e.g., Cupping feedback, profile tweaks, customer comments..." oninput="setFormDirty()"></textarea>
+           
+            <button id="importArtisanButton" class="mt-4 w-full py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-800 transition duration-150">Import from Artisan JSON</button>
+            <button id="importHiBeanButton" class="mt-2 w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition duration-150">Import from HiBean JSON</button>
+<input type="file" id="hiBeanFile" class="hidden" accept=".json">
+           
+            <button id="clearFormButton" class="mt-2 w-full py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition duration-150">Clear Form</button>
+            <div class="mb-4">
+    <label class="block text-sm font-medium text-gray-700 mb-1">Batch Quality</label>
+    <div class="flex gap-1" id="starRatingContainer">
+        <span onclick="setRating(1)" class="star cursor-pointer text-2xl text-gray-300" id="star1">★</span>
+        <span onclick="setRating(2)" class="star cursor-pointer text-2xl text-gray-300" id="star2">★</span>
+        <span onclick="setRating(3)" class="star cursor-pointer text-2xl text-gray-300" id="star3">★</span>
+        <span onclick="setRating(4)" class="star cursor-pointer text-2xl text-gray-300" id="star4">★</span>
+        <span onclick="setRating(5)" class="star cursor-pointer text-2xl text-gray-300" id="star5">★</span>
+    </div>
+    <input type="hidden" id="batchRating" value="0">
+</div>
+            <button id="analyzeButton" class="mt-4 w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition duration-150">Analyze Roast & Save</button>
+        </div>
+
+        <div class="output-section">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Roast Analysis & Sensory Prediction</h2>
+           
+            <p id="results-placeholder" class="text-center text-gray-500 mt-16">
+                Enter your roast data on the left and click "Analyze Roast & Save" to see the results here.
+            </p>
+
+            <div id="results-wrapper" style="display: none;">
+
+                <p class="text-2xl font-extrabold text-center mb-4">
+                    <span id="ratingResult" class="text-green-600">-</span>
+                </p>
+
+                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <p><strong>Weight Loss:</strong> <span id="weightLossResult" class="font-medium">-</span></p>
+                    <p><strong>Dev Time (FC to Drop):</strong> <span id="devTimeResult" class="font-medium">-</span></p>
+                    <p><strong>DTR (Ratio):</strong> <span id="dtrResult" class="font-medium">-</span></p>
+                    <p><strong id="rorLabel">RoR at 1C:</strong> <span id="rorResult" class="font-medium">-</span></p>
+                    <p><strong id="roastCostResultLabel">Cost for this Batch:</strong> <span id="roastCostResult" class="font-medium text-blue-600">-</span></p>
+                    <p><strong id="costPerUnitLabel">Cost per Roasted Unit:</strong> <span id="costPerUnitResult" class="font-medium text-blue-600">-</span></p>
+                    <p><strong id="invLabel">Inventory Remaining:</strong> <span id="inventoryRemainingResult" class="font-medium text-red-600">-</span></p>
+                </div>
+               
+                <div class="cost-breakdown-panel">
+                    <h3 class="font-bold text-base text-gray-800 mb-2">Cost Breakdown (Total: <span id="roastCostResult_copy" class="text-blue-600">-</span>)</h3>
+                    <p class="text-sm"><strong>Green Bean Cost:</strong> <span id="beanCostBreakdown" class="font-medium text-gray-700">-</span></p>
+                    <p class="text-sm"><strong>Labor Cost:</strong> <span id="laborCostBreakdown" class="font-medium text-gray-700">-</span></p>
+                    <p class="text-sm"><strong>Utilities Cost:</strong> <span id="utilityCostBreakdown" class="font-medium text-gray-700">-</span></p>
+                    <p class="text-sm"><strong>Packaging Cost:</strong> <span id="packagingCostBreakdown" class="font-medium text-gray-700">-</span></p>
+                    <p class="text-sm"><strong>Depreciation Cost:</strong> <span id="depreciationCostBreakdown" class="font-medium text-gray-700">-</span></p>
+                </div>
+               
+                <div class="sensory-panel">
+                    <h3 class="font-bold text-base text-gray-800 mb-2">Sensory Profile</h3>
+                    <p><strong>Aroma:</strong> <span id="aromaResult" class="font-medium">-</span></p>
+                    <p><strong>Acidity:</strong> <span id="acidityResult" class="font-medium">-</span></p>
+                    <p><strong>Body:</strong> <span id="bodyResult" class="font-medium">-</span></p>
+                    <p><strong>Flavor:</strong> <span id="flavorResult" class="font-medium">-</span></p>
+                </div>
+               
+                <div class="strategy-panel">
+                     <h3 class="font-bold text-base text-green-800 mb-2">Coach's Impression & Next Roast Strategy</h3>
+                    <p id="impressionResult" class="font-medium italic">-</p>
+                    <p class="mt-2"><strong id="strategyResult">-</strong></p>
+                </div>
+
+                <div class="chart-container w-full h-96 mt-6">
+                    <canvas id="roastCurveChart"></canvas>
+                </div>
+            </div> </div>
+    </div>
+
+    <div id="historyModal" class="modal hidden fixed inset-0 z-10 flex items-center justify-center bg-gray-500 bg-opacity-75 p-4 opacity-0">
+        <div class="modal-content bg-white rounded-xl shadow-xl w-full max-w-5xl transform scale-95 opacity-0">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-xl font-semibold text-gray-800">Roast History</h3>
+                <button id="closeHistoryModalButton" class="text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button>
+            </div>
+            <div class="p-4 flex flex-col md:flex-row gap-4 border-b">
+                <input type="text" id="historySearch" placeholder="Search by roast name..." class="w-full md:w-1/2 p-2 border border-gray-300 rounded-lg">
+                <div class="flex gap-4 w-full md:w-1/2">
+                    <select id="historyBeanFilter" class="flex-1 p-2 border border-gray-300 rounded-lg bg-white">
+                        <option value="">-- Filter by Bean --</option>
+                    </select>
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="historyFavoriteFilter" class="h-4 w-4 text-blue-600 border-gray-300 rounded">
+                        <label for="historyFavoriteFilter" class="text-sm font-medium text-gray-700">Show Favorites Only</label>
+                        <button onclick="exportHistoryToCSV()" class="ml-auto bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all active:scale-95 flex items-center gap-2">
+                            <span>📊</span>
+                            <span>Export CSV</span>
+                            <input type="file" id="importCSVInput" accept=".csv" class="hidden" onchange="importHistoryFromCSV(event)">
+                        <button onclick="document.getElementById('importCSVInput').click()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all active:scale-95 flex items-center gap-2">
+                            <span>📥</span>
+                            <span>Import CSV</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 modal-body">
+                <div class="history-item history-header">
+                    <span></span> <span>Date & Name</span>
+                    <span>Bean</span>
+                    <span>Rating</span>
+                    <span>DTR / WL%</span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <div id="historyList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="beanModal" class="modal hidden fixed inset-0 z-10 flex items-center justify-center bg-gray-500 bg-opacity-75 p-4 opacity-0">
+        <div class="modal-content bg-white rounded-xl shadow-xl w-full max-w-2xl transform scale-95 opacity-0">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-xl font-semibold text-gray-800">Bean Library</h3>
+                <button id="closeBeanModalButton" class="text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-700 mb-4">Add or Update Bean</h4>
+                    <div class="space-y-4">
+                        <div class="bean-grid">
+                            <label for="newBeanName">Bean Name:</label>
+                            <input type="text" id="newBeanName" placeholder="e.g., Brazil Cerrado">
+                        </div>
+                        <div class="bean-grid">
+                            <label for="newBeanCost" id="newBeanCostLabel">Cost:</label>
+                            <input type="number" id="newBeanCost" placeholder="e.g., 4.50">
+                        </div>
+                        <div class="bean-grid">
+                            <label for="newBeanInv" id="newBeanInvLabel">Inventory:</label>
+                            <input type="number" id="newBeanInv" placeholder="e.g., 50">
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 italic mt-2 text-right">Inventory will be reduced as you log roasts.</p>
+                    <button id="saveBeanButton" class="mt-6 w-full py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 text-sm">Save Bean</button>
+                    <button id="clearBeanFormButton" class="mt-2 w-full py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 text-sm">Clear Form</button>
+                </div>
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-700 mb-4">Saved Beans</h4>
+                    <div id="beanLibraryList" class="h-64 overflow-y-auto border rounded-lg p-2 bg-gray-50"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+   
+    <div id="settingsModal" class="modal hidden fixed inset-0 z-10 flex items-center justify-center bg-gray-500 bg-opacity-75 p-4 opacity-0">
+        <div class="modal-content bg-white rounded-xl shadow-xl w-full max-w-7xl transform scale-95 opacity-0">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-xl font-semibold text-gray-800">Analyzer Settings</h3>
+                <button id="closeSettingsModalButton" class="text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button>
+            </div>
+            <div class="p-6 modal-body">
+               
+                <div class="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex justify-between items-center">
+                    <div>
+                        <h4 class="font-bold text-indigo-800">Community & Support</h4>
+                        <p class="text-sm text-indigo-700">Join the conversation, get help, and share profiles.</p>
+                    </div>
+                    <a href="https://www.facebook.com/groups/avytools" target="_blank" class="py-2 px-4 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition">Join the Private User Group</a>
+                </div>
+
+                <div class="units-panel grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex justify-between items-center">
+                        <span class="font-semibold text-gray-700">Temperature Units:</span>
+                        <div class="unit-toggle">
+                            <button id="modalUnitToggleC" class="active">°C</button>
+                            <button id="modalUnitToggleF">°F</button>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="font-semibold text-gray-700">Cost & Weight Units:</span>
+                        <div class="unit-toggle">
+                            <button id="costUnitToggleLB" class="active">lbs</button>
+                            <button id="costUnitToggleKG">kg</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="units-panel bg-gray-50 border border-gray-200 rounded-xl p-5 max-w-4xl">
+   
+                    <div class="flex justify-between items-end mb-6 border-b border-gray-300 pb-3">
+                        <div>
+                            <h4 class="font-bold text-gray-800 text-lg">Operational Costs</h4>
+                            <p class="text-xs text-gray-500 mt-1">Set your hourly rates and overheads.</p>
+                        </div>
+                        <div class="text-right">
+                            <label for="currencySymbol" class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Currency</label>
+                            <select id="currencySymbol" class="py-1 px-2 pr-8 border border-green-200 rounded text-sm font-bold text-green-800 bg-green-50 focus:ring-1 focus:ring-green-500 cursor-pointer shadow-sm hover:bg-green-100 transition-colors">
+                                <option value="$">$ (USD)</option>
+                                <option value="€">€ (EUR)</option>
+                                <option value="£">£ (GBP)</option>
+                                <option value="C$">C$ (CAD)</option>
+                                <option value="A$">A$ (AUD)</option>
+                                <option value="¥">¥ (JPY)</option>
+                                <option value="CHF">CHF (CHF)</option>
+                                <option value="R$">R$ (BRL)</option>
+                            </select>
+                        </div>
+                    </div>
+               
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                       
+                        <div>
+                            <label for="laborCost" class="block text-sm font-semibold text-gray-700 mb-1">Avg. Labor Cost / Hr</label>
+                            <div class="relative">
+                                <input type="number" id="laborCost" placeholder="25.00" class="w-full pl-3 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-gray-800">
+                            </div>
+                        </div>
+               
+                        <div>
+                            <label for="avgPackagingCost" class="block text-sm font-semibold text-gray-700 mb-1">Avg. Packaging Cost / Unit</label>
+                            <div class="relative">
+                                <input type="number" id="avgPackagingCost" placeholder="0.85" class="w-full pl-3 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-gray-800">
+                                <span class="absolute right-3 top-2 text-xs text-gray-400 pointer-events-none">(bag + label)</span>
+                            </div>
+                        </div>
+               
+                        <div>
+                            <label for="utilityCost" class="block text-sm font-semibold text-gray-700 mb-1">Avg. Utilities Cost / Hr</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="utilityCost" placeholder="1.50" class="w-full pl-3 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-gray-800">
+                                <button type="button" id="calculateUtilityButton" class="px-3 py-2 bg-white border border-gray-300 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-50 hover:text-blue-600 transition uppercase tracking-wide shadow-sm">
+                                    Calc
+                                </button>
+                            </div>
+                        </div>
+               
+                        <div>
+                            <label for="depreciationCost" class="block text-sm font-semibold text-gray-700 mb-1">Avg. Depreciation / Hr</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="depreciationCost" placeholder="0.50" class="w-full pl-3 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-gray-800">
+                                <button type="button" id="calculateDepreciationButton" class="px-3 py-2 bg-white border border-gray-300 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-50 hover:text-orange-600 transition uppercase tracking-wide shadow-sm">
+                                    Calc
+                                </button>
+                            </div>
+                        </div>
+               
+                    </div>
+                </div>
+
+                <p class="text-sm text-gray-600 mb-4 mt-4">Set your "ideal" target ranges for the analyzer's scoring.</p>
+                <div class="settings-grid">
+                    <div class="settings-grid-header">Roast Level</div>
+                    <div class="settings-grid-header">DTR Min (%)</div>
+                    <div class="settings-grid-header">DTR Max (%)</div>
+                    <div class="settings-grid-header">WL Min (%)</div>
+                    <div class="settings-grid-header">WL Max (%)</div>
+                    <div class="font-semibold">Flavoring Base</div>
+                    <input type="number" id="flavoring-dtr-min"><input type="number" id="flavoring-dtr-max">
+                    <input type="number" id="flavoring-wl-min"><input type="number" id="flavoring-wl-max">
+                    <div class="font-semibold">Light Roast</div>
+                    <input type="number" id="light-dtr-min"><input type="number" id="light-dtr-max">
+                    <input type="number" id="light-wl-min"><input type="number" id="light-wl-max">
+                    <div class="font-semibold">Medium Roast</div>
+                    <input type="number" id="medium-dtr-min"><input type="number" id="medium-dtr-max">
+                    <input type="number" id="medium-wl-min"><input type="number" id="medium-wl-max">
+                    <div class="font-semibold">Dark Roast</div>
+                    <input type="number" id="dark-dtr-min"><input type="number" id="dark-dtr-max">
+                    <input type="number" id="dark-wl-min"><input type="number" id="dark-wl-max">
+                    <div class="font-semibold">Italian Roast</div>
+                    <input type="number" id="italian-dtr-min"><input type="number" id="italian-dtr-max">
+                    <input type="number" id="italian-wl-min"><input type="number" id="italian-wl-max">
+                </div>
+               
+                <div class="mt-6 border-t pt-6">
+                    <h4 class="font-semibold">Data Management</h4>
+                    <p class="text-sm text-gray-600 mb-4">Save a backup of your data, or restore from a previous backup file.</p>
+                    <div class="flex gap-4">
+                        <button id="exportButton" class="py-2 px-4 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-800">Backup (Export)</button>
+                        <button id="importButton" class="py-2 px-4 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600">Restore (Import)</button>
+                    </div>
+                </div>
+               
+                <div class="mt-6 border-t pt-6">
+                    <div class="flex justify-between items-center gap-4">
+                        <div>
+                            <h4 class="font-semibold">Advanced</h4>
+                            <p class="text-sm text-gray-600">If your roast history is missing, click here.</p>
+                            <button id="historyRescueButton" class="mt-2 py-2 px-4 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">Attempt to Recover/Migrate Data</button>
+                        </div>
+                        <div class="flex gap-4 flex-shrink-0">
+                            <button id="resetSettingsButton" class="py-2 px-4 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300">Reset</button>
+                            <button id="saveSettingsButton" class="py-2 px-6 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+   
+    <div id="utilityModal" class="modal hidden fixed inset-0 z-20 flex items-center justify-center bg-gray-500 bg-opacity-75 p-4 opacity-0">
+        <div class="modal-content bg-white rounded-xl shadow-xl w-full max-w-md transform scale-95 opacity-0">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-xl font-semibold text-gray-800">Utilities Calculator</h3>
+                <button id="closeUtilityModalButton" class="text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <p class="text-sm text-gray-600">Find your hourly energy cost. Check your roaster's spec plate and your utility bill.</p>
+               
+                <div class="flex justify-center">
+                    <div class="unit-toggle">
+                        <button id="energyToggleElectric" class="active">Electric</button>
+                        <button id="energyToggleGas">Natural Gas</button>
+                    </div>
+                </div>
+
+                <div id="electricFields">
+                    <div>
+                        <label for="roasterEnergyUse" class="text-sm font-medium">Roaster Energy Use (kW):</label>
+                        <input type="number" id="roasterEnergyUse" placeholder="e.g., 10" class="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div>
+                        <label for="energyPrice" class="text-sm font-medium">Energy Price ($/kWh):</label>
+                        <input type="number" id="energyPrice" placeholder="e.g., 0.15" class="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                    </div>
+                </div>
+               
+                <div id="gasFields" class="hidden">
+                    <div>
+                        <label for="roasterBTU" class="text-sm font-medium">Roaster Energy Use (BTU/hr):</label>
+                        <input type="number" id="roasterBTU" placeholder="e.g., 50000" class="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div>
+                        <label for="gasPrice" class="text-sm font-medium">Gas Price ($/therm):</label>
+                        <input type="number" id="gasPrice" placeholder="e.g., 1.20" class="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                    </div>
+                </div>
+               
+                <button id="calculateUtilityCostButton" class="w-full py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Calculate & Use</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="depreciationModal" class="modal hidden fixed inset-0 z-20 flex items-center justify-center bg-gray-500 bg-opacity-75 p-4 opacity-0">
+        <div class="modal-content bg-white rounded-xl shadow-xl w-full max-w-md transform scale-95 opacity-0">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-xl font-semibold text-gray-800">Depreciation Calculator</h3>
+                <button id="closeDepreciationModalButton" class="text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <p class="text-sm text-gray-600">Calculate wear & tear per hour based on asset lifespan.</p>
+               
+                <div class="bg-yellow-50 p-3 rounded border border-yellow-200 mb-2">
+                    <p class="text-xs font-bold text-yellow-800 uppercase mb-1">Cheat Sheet (Industry Averages)</p>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="setLifespan(20000)" class="text-xs bg-white border border-yellow-300 px-2 py-1 rounded hover:bg-yellow-100">Drum Roaster (20k hrs)</button>
+                        <button onclick="setLifespan(5000)" class="text-xs bg-white border border-yellow-300 px-2 py-1 rounded hover:bg-yellow-100">Fluid Bed (5k hrs)</button>
+                        <button onclick="setLifespan(2000)" class="text-xs bg-white border border-yellow-300 px-2 py-1 rounded hover:bg-yellow-100">Comm. Grinder (2k hrs)</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="assetCost" class="text-sm font-medium">Total Equipment Cost:</label>
+                    <input type="number" id="assetCost" placeholder="e.g., 15000" class="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                </div>
+                <div>
+                    <label for="assetLifespan" class="text-sm font-medium">Est. Lifespan (Hours):</label>
+                    <input type="number" id="assetLifespan" placeholder="e.g., 20000" class="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                </div>
+               
+                <button id="runDepreciationCalcButton" class="w-full py-2 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700">Calculate & Use</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="customerModal" class="modal hidden fixed inset-0 z-10 flex items-center justify-center bg-gray-500 bg-opacity-75 p-4 opacity-0">
+    <div class="modal-content bg-white rounded-xl shadow-xl w-full max-w-4xl transform scale-95 opacity-0">
+        <div class="flex justify-between items-center p-4 border-b">
+            <h3 class="text-xl font-semibold text-gray-800">Customer Management</h3>
+            <button onclick="closeModal('customerModal')" class="text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="md:col-span-1 space-y-4">
+                <h4 class="font-bold text-gray-700">Add New Customer</h4>
+                <input type="text" id="newCustName" placeholder="Customer Name" class="w-full p-2 border rounded">
+                <input type="email" id="newCustEmail" placeholder="Email (Optional)" class="w-full p-2 border rounded">
+                <button onclick="addCustomer()" class="w-full py-2 bg-orange-600 text-white font-bold rounded hover:bg-orange-700">Save Customer</button>
+            </div>
+            <div class="md:col-span-2">
+                <h4 class="font-bold text-gray-700 mb-2">Saved Customers</h4>
+                <input type="text" id="customerSearchInput" oninput="handleCustomerSearch()" placeholder="Search by name..." class="w-full p-2 mb-2 border rounded text-sm">
+                <div id="customerList" class="max-height-[300px] overflow-y-auto border rounded bg-gray-50 p-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
+   
+<script>
+    // --- STEALTH ACCESS CONTROL ---
+    (function() {
+        // Your encoded password: 'avytools'
+        const _0x4a2b = "YXZ5dG9vbHM="; 
+        const sessionKey = 'avy_auth_session';
+        
+        if (sessionStorage.getItem(sessionKey) !== 'true') {
+            let input = prompt("Avy Coffee Roast Analyzer v4.5.1\nPlease enter your access password:");
+            
+            // Checks the input against your encoded string
+            if (input && btoa(input) === _0x4a2b) {
+                sessionStorage.setItem(sessionKey, 'true');
+            } else {
+                alert("Access Denied. Please contact Kyle for your credentials.");
+                document.documentElement.innerHTML = `
+                    <body style="background:#f7f3f0; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:sans-serif; text-align:center; padding:20px;">
+                        <h1 style="color:#4b5563; font-size:24px; font-weight:bold; margin-bottom:10px;">Access Denied</h1>
+                        <p style="color:#6b7280; margin-bottom:20px;">This tool is reserved for authorized Avy Coffee members.</p>
+                        <button onclick="location.reload()" style="padding:12px 24px; background:#166534; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">Enter Password</button>
+                    </body>`;
+                throw new Error("Auth Failed");
+            }
+        }
+    })();
+
+    let currentBatchRating = 0;
+
+function setRating(val) {
+    currentBatchRating = val;
+    document.getElementById('batchRating').value = val;
+    
+    // Reset all stars to gray, then light up the ones up to the clicked value
+    for (let i = 1; i <= 5; i++) {
+        const star = document.getElementById(`star${i}`);
+        if (i <= val) {
+            star.classList.replace('text-gray-300', 'text-yellow-400');
+        } else {
+            star.classList.replace('text-yellow-400', 'text-gray-300');
+        }
+    }
+}
+function exportHistoryToCSV() {
+    // This looks in your v9 database instead of the empty old one
+    const history = loadHistory(); 
+    
+    if (history.length === 0) {
+        showToast("No history found to export!", "error");
+        return;
+    }
+
+    let csvContent = "Date,Roast Name,Bean,First Crack,Drop Time,DTR %,Weight Loss %,Quality Stars,Notes\n";
+
+    history.forEach(roast => {
+        const inputs = roast.inputs || {};
+        const outputs = roast.outputs || {};
+        
+        const row = [
+            new Date(roast.roastDate).toLocaleDateString(),
+            `"${inputs.roastName || 'Untitled'}"`,
+            `"${inputs.beanName || 'Unknown'}"`,
+            inputs.firstCrackTime || 'N/A',
+            inputs.dropTime || 'N/A',
+            outputs.dtr ? outputs.dtr.toFixed(1) : 0,
+            outputs.weightLoss ? outputs.weightLoss.toFixed(1) : 0,
+            inputs.rating || 0,
+            `"${(inputs.notes || '').replace(/"/g, '""')}"`
+        ];
+        csvContent += row.join(",") + "\n";
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Avy_Coffee_History_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("CSV Exported successfully!", "success");
+}
+    let roastChart = null;
+    const BEANS_DB_KEY = 'avyCoffeeBeanLibrary';
+    const SETTINGS_DB_KEY = 'avyRoastSettings';
+   
+    const OLD_HISTORY_KEY_1 = 'avyRoastHistory';
+    const OLD_HISTORY_KEY_2 = 'avyRoastHistory_v6';
+    const OLD_HISTORY_KEY_3 = 'avyRoastHistory_v7';
+    const OLD_HISTORY_KEY_4 = 'avyRoastHistory_v8';
+    const ROAST_HISTORY_KEY = 'avyRoastHistory_v9';
+   
+    const TEMP_UNITS_PREF_KEY = 'avyRoastTempUnitPref_v8';
+    const COST_UNITS_PREF_KEY = 'avyRoastCostUnitPref_v8';
+    const OVERHEAD_COSTS_KEY = 'avyRoastOverheadCosts_v12'; // Updated for v4.5
+    const CURRENCY_SYMBOL_KEY = 'avyRoastCurrencySymbol_v4_3';
+
+    let currentTempUnits = 'C';
+    let currentCostUnits = 'lb';
+    let currentCurrencySymbol = '$';
+    let currentEnergyType = 'electric';
+    let isFormDirty = false;
+    let toastTimer;
+   
+    const defaultSettings = {
+        Flavoring: { wlRange: [13, 16], dtrRange: [14, 17] },
+        Light: { wlRange: [13, 16], dtrRange: [16, 20] },
+        Medium: { wlRange: [15, 18], dtrRange: [18, 24] },
+        Dark: { wlRange: [16, 19], dtrRange: [20, 26] },
+        Italian: { wlRange: [18, 22], dtrRange: [24, 30] }
+    };
+   
+    const descriptiveProfiles = {
+        Flavoring: { aroma: "Clean, Nutty, Sweet", acidity: "Low / Muted", body: "Medium", flavor: "Neutral, Sweet, Malty" },
+        Light: { aroma: "Bright, Floral, Fruity", acidity: "High & Crisp", body: "Light", flavor: "Citrus, Berry, Tea-like" },
+        Medium: { aroma: "Caramel, Chocolate, Nutty", acidity: "Balanced", body: "Medium & Smooth", flavor: "Brown Sugar, Stone Fruit" },
+        Dark: { aroma: "Roasty, Smoky, Dark Chocolate", acidity: "Low", body: "Heavy & Rich", flavor: "Bittersweet Chocolate, Spice" },
+        Italian: { aroma: "Smoky, Carbon, Ashy", acidity: "Very Low / Muted", body: "Thin", flavor: "Intensely Bitter, Carbon" }
+    };
+
+    // --- DB FUNCTIONS ---
+    function loadBeans() { return JSON.parse(localStorage.getItem(BEANS_DB_KEY)) || []; }
+    function saveBeans(beans) { localStorage.setItem(BEANS_DB_KEY, JSON.stringify(beans)); }
+    function loadSettings() {
+        const s = localStorage.getItem(SETTINGS_DB_KEY);
+        return s ? { ...defaultSettings, ...JSON.parse(s) } : defaultSettings;
+    }
+    function saveSettings(settings) { localStorage.setItem(SETTINGS_DB_KEY, JSON.stringify(settings)); }
+    function populateSettingsUI() {
+    const settings = loadSettings();
+    
+    // This physically puts your saved DTR targets into the boxes
+    if (document.getElementById('targetDtrMin')) {
+        document.getElementById('targetDtrMin').value = settings.targetDtrMin || 16.0;
+    }
+    if (document.getElementById('targetDtrMax')) {
+        document.getElementById('targetDtrMax').value = settings.targetDtrMax || 24.0;
+    }
+}
+    function migrateAllHistory() {
+    const keys = [
+        'avyRoastHistory', 'avyRoastHistory_v1', 'avyRoastHistory_v2', 
+        'avyRoastHistory_v3', 'avyRoastHistory_v4', 'avyRoastHistory_v5', 
+        'avyRoastHistory_v6', 'avyRoastHistory_v7', 'avyRoastHistory_v8'
+    ];
+    
+    let consolidatedHistory = JSON.parse(localStorage.getItem(ROAST_HISTORY_KEY)) || [];
+    
+    keys.forEach(key => {
+        const oldData = JSON.parse(localStorage.getItem(key));
+        if (Array.isArray(oldData)) {
+            oldData.forEach(item => {
+                // Only add if the ID doesn't already exist
+                if (!consolidatedHistory.some(h => h.id === item.id)) {
+                    consolidatedHistory.push(item);
+                }
+            });
+        }
+    });
+
+    localStorage.setItem(ROAST_HISTORY_KEY, JSON.stringify(consolidatedHistory));
+    console.log("Migration Complete! Consolidated History Size:", consolidatedHistory.length);
+    
+    // Now that data is moved, DRAW the list
+    if (typeof renderHistoryList === 'function') {
+        renderHistoryList();
+    }
+}
+
+// Run the migration once when the app loads
+migrateAllHistory();
+    function loadHistory() { return JSON.parse(localStorage.getItem(ROAST_HISTORY_KEY)) || []; }
+    function saveHistory(history) { localStorage.setItem(ROAST_HISTORY_KEY, JSON.stringify(history)); }
+   
+    // Updated v4.5: Includes depreciation
+    function loadOverheadCosts() {
+        const costs = localStorage.getItem(OVERHEAD_COSTS_KEY);
+        return costs ? JSON.parse(costs) : { labor: 0, utility: 0, packaging: 0, depreciation: 0 };
+    }
+    function saveOverheadCosts(costs) {
+        localStorage.setItem(OVERHEAD_COSTS_KEY, JSON.stringify(costs));
+    }
+   
+    function loadCurrencySymbol() {
+        currentCurrencySymbol = localStorage.getItem(CURRENCY_SYMBOL_KEY) || '$';
+    }
+    function saveCurrencySymbol(symbol) {
+        currentCurrencySymbol = symbol || '$';
+        localStorage.setItem(CURRENCY_SYMBOL_KEY, currentCurrencySymbol);
+        updateCurrencySymbolUI();
+    }
+   
+    // --- UNITS FUNCTIONS ---
+    function loadTempUnitsPref() {
+        currentTempUnits = localStorage.getItem(TEMP_UNITS_PREF_KEY) || 'C';
+        updateTempUnitUI();
+    }
+    function saveTempUnitsPref(unit) {
+        currentTempUnits = unit;
+        localStorage.setItem(TEMP_UNITS_PREF_KEY, unit);
+        updateTempUnitUI();
+    }
+    function loadCostUnitsPref() {
+        currentCostUnits = localStorage.getItem(COST_UNITS_PREF_KEY) || 'lb';
+        updateCostUnitUI();
+    }
+    function saveCostUnitsPref(unit) {
+        currentCostUnits = unit;
+        localStorage.setItem(COST_UNITS_PREF_KEY, unit);
+        updateCostUnitUI();
+        handleBeanSelection();
+        renderBeanListInModal();
+    }
+
+    function updateCurrencySymbolUI() {
+        const sym = currentCurrencySymbol;
+        document.getElementById('beanCostLabel').textContent = `Green Cost (${sym}/${currentCostUnits}):`;
+        document.getElementById('roastCostResultLabel').textContent = `Cost for this Batch:`;
+        document.getElementById('costPerUnitLabel').textContent = `Cost per Roasted Unit:`;
+       
+        renderBeanListInModal();
+       
+        if (document.getElementById('roastCostResult').textContent !== '-') {
+            analyzeRoast(false);
+        }
+    }
+   
+    function updateSettingsModalCurrencyUI() {
+        const sym = currentCurrencySymbol;
+        document.getElementById('currencySymbol').value = currentCurrencySymbol;
+        document.getElementById('newBeanCostLabel').textContent = `Cost (${sym}/${currentCostUnits}):`;
+       
+        document.querySelector('label[for="laborCost"]').textContent = `Avg. Labor Cost / Hr (${sym}):`;
+        document.querySelector('label[for="avgPackagingCost"]').textContent = `Avg. Packaging Cost / Unit (${sym}):`;
+        document.querySelector('label[for="utilityCost"]').textContent = `Avg. Utilities Cost / Hr (${sym}):`;
+        document.querySelector('label[for="depreciationCost"]').textContent = `Avg. Depreciation / Hr (${sym}):`;
+        document.querySelector('label[for="energyPrice"]').textContent = `Energy Price (${sym}/kWh):`;
+        document.querySelector('label[for="gasPrice"]').textContent = `Gas Price (${sym}/therm):`;
+    }
+
+    function updateTempUnitUI() {
+    const unitLabel = `°${currentTempUnits}`;
+    
+    // Safely update labels only if they exist in your HTML
+    const roastLabel = document.getElementById('roastDataLabel');
+    if (roastLabel) roastLabel.textContent = `Roast Log (Temp ${unitLabel}, one value per 30-sec line):`;
+
+    const rorLabel = document.getElementById('rorLabel');
+    if (rorLabel) rorLabel.innerHTML = `RoR at 1C (${unitLabel}/min):`;
+
+    const roastData = document.getElementById('roastData');
+    if (roastData) {
+        roastData.placeholder = "Enter one temp per 30-sec line... or paste from Artisan JSON export";
+    }
+
+    const modalBtnC = document.getElementById('modalUnitToggleC');
+    const modalBtnF = document.getElementById('modalUnitToggleF');
+    if (modalBtnC && modalBtnF) {
+        modalBtnC.classList.toggle('active', currentTempUnits === 'C');
+        modalBtnF.classList.toggle('active', currentTempUnits === 'F');
+    }
+}
+    function updateCostUnitUI() {
+        const unit = currentCostUnits;
+        document.getElementById('beanCostLabel').textContent = `Green Cost (${currentCurrencySymbol}/${unit}):`;
+        document.getElementById('costPerUnitLabel').textContent = `Cost per Roasted ${unit}:`;
+        document.getElementById('invLabel').textContent = `Inventory (${unit}):`;
+        document.getElementById('oz-display-p').style.display = unit === 'lb' ? 'block' : 'none';
+       
+        updateBeanModalLabels();
+       
+        const active = 'active';
+        document.getElementById('costUnitToggleLB').classList.toggle(active, unit === 'lb');
+        document.getElementById('costUnitToggleKG').classList.toggle(active, unit === 'kg');
+    }
+    function updateBeanModalLabels() {
+        const unit = currentCostUnits;
+        document.getElementById('newBeanCostLabel').textContent = `Cost (${currentCurrencySymbol}/${unit}):`;
+        document.getElementById('newBeanInvLabel').textContent = `Inventory (${unit}):`;
+    }
+   
+    function toC(tempF) { return (tempF - 32) * 5 / 9; }
+    function toF(tempC) { return (tempC * 9 / 5) + 32; }
+    const G_TO_LB = 1 / 453.592;
+    const G_TO_KG = 1 / 1000;
+    const BTU_TO_THERM = 1 / 100000;
+
+function populateSettingsUI() {
+    const settings = loadSettings(); // Get the saved numbers
+    
+    // Type the numbers into the DTR boxes
+    const dtrMin = document.getElementById('targetDtrMin');
+    const dtrMax = document.getElementById('targetDtrMax');
+    
+    if (dtrMin) dtrMin.value = settings.targetDtrMin || 16;
+    if (dtrMax) dtrMax.value = settings.targetDtrMax || 24;
+}
+    // --- MODAL, UI, & TOAST FUNCTIONS ---
+    function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        if (modalId === 'settingsModal') {
+        populateSettingsUI();
+    }
+        modal.classList.remove('hidden');
+        document.body.classList.add('modal-open');
+        modal.addEventListener('click', handleBackdropClick);
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            modal.querySelector('.modal-content').classList.remove('scale-95', 'opacity-0');
+        }, 10);
+    }
+    function closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        document.body.classList.remove('modal-open');
+        modal.classList.add('opacity-0');
+        modal.removeEventListener('click', handleBackdropClick);
+        modal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 250);
+    }
+    function handleBackdropClick(e) {
+        if (e.target.id === e.currentTarget.id) {
+            closeModal(e.currentTarget.id);
+        }
+    }
+    // --- CRM & CUSTOMER LOGIC ---
+function loadCustomers() { return JSON.parse(localStorage.getItem('avyCoffeeCustomers')) || []; }
+function saveCustomers(custs) { localStorage.setItem('avyCoffeeCustomers', JSON.stringify(custs)); }
+function handleCustomerSearch() {
+    const searchTerm = document.getElementById('customerSearchInput').value.toLowerCase();
+    renderCustomerList(searchTerm);
+}
+
+function renderCustomerDropdown() {
+    const sel = document.getElementById('customerSelect');
+    if (!sel) return;
+    const custs = loadCustomers().sort((a, b) => a.name.localeCompare(b.name));
+    sel.innerHTML = '<option value="">-- Select a Customer --</option>';
+    custs.forEach(c => sel.innerHTML += `<option value="${c.name}">${c.name}</option>`);
+}
+
+function toggleQuickHistoryLink() {
+    const sel = document.getElementById('customerSelect');
+    const link = document.getElementById('quickCustHistory');
+    if (link && sel) link.classList.toggle('hidden', !sel.value);
+}
+
+function openQuickHistory() {
+    const name = document.getElementById('customerSelect').value;
+    if (!name) {
+        showToast("Select a customer first!", "info");
+        return; // This return is now safely inside a function
+    }
+    
+    openModal('historyModal');
+    const searchInput = document.getElementById('historySearch');
+    if (searchInput) {
+        searchInput.value = name;
+        renderHistoryList();
+    }
+}
+
+// --- SETTINGS AUTO-FILL (Kyle's Avy Coffee Defaults) ---
+function openSettingsModal() {
+    try {
+        const costs = loadOverheadCosts();
+        const settings = loadSettings(); 
+        
+        const safeSet = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val !== undefined ? val : 0;
+        };
+
+        // 1. Costs - Check these IDs against your Operational Costs section
+        safeSet('laborCost', costs.labor);
+        safeSet('utilityCost', costs.utility);
+        safeSet('avgPackagingCost', costs.packaging); // Matches Line 419
+        safeSet('depreciationCost', costs.depreciation);
+
+        // 2. Ideal Target Ranges - Matching your HTML table
+        const levels = ['Flavoring', 'Light', 'Medium', 'Dark', 'Italian'];
+        levels.forEach(lvl => {
+            const key = lvl.toLowerCase();
+            const data = settings[lvl];
+            if (data) {
+                // These match the IDs in your Settings Grid (e.g., flavoring-dtr-min)
+                safeSet(`${key}-dtr-min`, data.dtrRange[0]);
+                safeSet(`${key}-dtr-max`, data.dtrRange[1]);
+                safeSet(`${key}-wl-min`, data.wlRange[0]);
+                safeSet(`${key}-wl-max`, data.wlRange[1]);
+            }
+        });
+
+        openModal('settingsModal');
+    } catch (e) {
+        console.error("Settings Error:", e);
+        openModal('settingsModal'); // Open anyway so you can see the window
+    }
+}
+
+// --- ROR GUIDE LOGIC (Prevents Stalls) ---
+function generateRoRGuide() {
+    const beanId = document.getElementById('beansUsed').value;
+    const level = document.getElementById('targetRoastLevel').value;
+    const guideList = document.getElementById('rorGuideList');
+    if (!guideList) return;
+
+    const beans = loadBeans();
+    const selectedBean = beans.find(b => b.name === beanId);
+    
+    const isCelsius = (currentTempUnits === 'C');
+    const fcMin = isCelsius ? 193 : 380;
+    const fcMax = isCelsius ? 202 : 395;
+    
+    // --- TUNED ROR SETTINGS FOR SKYWALKER 500G ---
+    // Boosted starting RoR: Light/Specialty needs more heat to finish clean.
+    let baseRoR = (level === 'Light' || level === 'Specialty') ? 16.0 : 14.5;
+    
+    // Scale for Celsius vs Fahrenheit
+    let ror = isCelsius ? (baseRoR / 1.8) : baseRoR;
+    
+    // Slowed the decline (0.4 instead of 0.6) to keep momentum into FC
+    const declineRate = isCelsius ? 0.22 : 0.45; 
+    
+    let currentTemp = selectedBean ? parseFloat(selectedBean.chargeTemp) || (isCelsius ? 93 : 200) : (isCelsius ? 93 : 200);
+    
+    let html = '';
+    for (let i = 0; i <= 24; i++) {
+        const time = (i * 0.5).toFixed(1);
+        
+        const isFCZone = currentTemp >= fcMin && currentTemp <= fcMax;
+        const rowClass = isFCZone ? 'bg-orange-100 border-orange-200' : 'border-gray-100';
+        const labelExtra = isFCZone ? '<span class="text-[9px] font-bold text-orange-600 ml-1">FC ZONE</span>' : '';
+
+        html += `<div class="flex justify-between border-b ${rowClass} py-0.5 px-1 transition-colors">
+            <span class="text-gray-500">${time}m ${labelExtra}</span>
+            <span class="font-bold ${isFCZone ? 'text-orange-700' : 'text-blue-700'}">${currentTemp.toFixed(1)}°</span>
+            <span class="text-gray-600 text-[10px] font-semibold">${ror > 0 ? '+' : ''}${ror.toFixed(1)}</span>
+        </div>`;
+        
+        // Every 30 seconds, we add half of the 1-minute RoR to the temp
+        currentTemp += (ror / 2); 
+        
+        // Gradually decline RoR, but never let it hit 0 (keep a minimum crawl)
+        ror = Math.max(ror - (declineRate / 2), isCelsius ? 1.1 : 2.0); 
+    }
+    guideList.innerHTML = html;
+}
+   
+    function showToast(message, type = 'info') {
+        const toast = document.getElementById('toast-notification');
+        const messageEl = document.getElementById('toast-message');
+
+        if (toastTimer) {
+            clearTimeout(toastTimer);
+        }
+
+        messageEl.textContent = message;
+        toast.classList.remove('bg-green-600', 'bg-red-600', 'bg-blue-600');
+
+        if (type === 'success') {
+            toast.classList.add('bg-green-600');
+        } else if (type === 'error') {
+            toast.classList.add('bg-red-600');
+        } else {
+            toast.classList.add('bg-blue-600');
+        }
+
+        toast.classList.remove('hidden', 'opacity-0', 'translate-x-full');
+        toast.classList.add('opacity-100', 'translate-x-0');
+
+        toastTimer = setTimeout(() => {
+            toast.classList.remove('opacity-100', 'translate-x-0');
+            toast.classList.add('opacity-0', 'translate-x-full');
+            setTimeout(() => toast.classList.add('hidden'), 300);
+        }, 3000);
+    }
+
+    function setFormDirty() {
+        isFormDirty = true;
+    }
+    function checkUnsaved() {
+        if (isFormDirty && !confirm("You have an unsaved roast. Are you sure? Your changes will be lost.")) {
+            return false;
+        }
+        isFormDirty = false;
+        return true;
+    }
+
+    // --- BEAN LIBRARY ---
+    function openBeanModal() { openModal('beanModal'); updateBeanModalLabels(); renderBeanListInModal(); }
+    function closeBeanModal() { closeModal('beanModal'); }
+    function renderBeanLibrary() {
+        const beans = loadBeans().sort((a, b) => a.name.localeCompare(b.name));
+        const sel = document.getElementById('beansUsed');
+        sel.innerHTML = '<option value="">-- Select a Bean --</option>';
+        beans.forEach(b => sel.innerHTML += `<option value="${b.name}">${b.name}</option>`);
+    }
+    function renderBeanListInModal() {
+         const listEl = document.getElementById('beanLibraryList');
+         listEl.innerHTML = '';
+         const beans = loadBeans().sort((a, b) => a.name.localeCompare(b.name));
+         if (beans.length === 0) {
+             listEl.innerHTML = '<p class="text-sm text-gray-500 p-4 text-center">No beans saved.</p>';
+             return;
+         }
+        beans.forEach(bean => {
+            const row = document.createElement('div');
+            row.className = 'p-2 flex justify-between items-center text-sm border-b hover:bg-gray-100';
+            const costUnit = bean.costUnit || 'lb';
+            row.innerHTML = `
+                <div class="cursor-pointer" onclick="editBean('${bean.name}')">
+                    <span class="font-semibold">${bean.name}</span>
+                    <div class="text-xs text-gray-600">Cost: ${currentCurrencySymbol}${bean.cost.toFixed(2)}/${costUnit} | Inv: ${bean.inventory.toFixed(2)} ${costUnit}</div>
+                </div>
+                <button onclick="deleteBean('${bean.name}')" class="text-red-500 hover:text-red-700 font-bold text-lg">&times;</button>
+            `;
+            listEl.appendChild(row);
+        });
+    }
+    window.editBean = function(name) {
+        const bean = loadBeans().find(b => b.name === name);
+        if (bean) {
+            const beanUnit = bean.costUnit || 'lb';
+            if (beanUnit !== currentCostUnits) {
+                showToast(`Warning: This bean uses ${beanUnit}s. Please switch settings to ${beanUnit}s to edit it.`, 'error');
+            }
+            document.getElementById('newBeanName').value = bean.name;
+            document.getElementById('newBeanCost').value = bean.cost.toFixed(2);
+            document.getElementById('newBeanInv').value = bean.inventory.toFixed(2);
+        }
+    }
+    function clearBeanForm() {
+        document.getElementById('newBeanName').value = '';
+        document.getElementById('newBeanCost').value = '';
+        document.getElementById('newBeanInv').value = '';
+    }
+    function addNewBean() {
+        const name = document.getElementById('newBeanName').value.trim();
+        const cost = parseFloat(document.getElementById('newBeanCost').value);
+        const inv = parseFloat(document.getElementById('newBeanInv').value);
+        if (!name || isNaN(cost) || cost <= 0 || isNaN(inv) || inv < 0) {
+            showToast('Please enter a valid name, cost, and inventory.', 'error'); return;
+        }
+        const beans = loadBeans();
+        const idx = beans.findIndex(b => b.name.toLowerCase() === name.toLowerCase());
+        const beanData = {
+            name,
+            cost,
+            inventory: inv,
+            costUnit: currentCostUnits
+        };
+        if (idx > -1) {
+            beans[idx] = beanData;
+            showToast('Bean updated!', 'success');
+        } else {
+            beans.push(beanData);
+            showToast('Bean added!', 'success');
+        }
+        saveBeans(beans);
+        renderBeanLibrary();
+        renderBeanListInModal();
+        clearBeanForm();
+    }
+    window.deleteBean = function(name) {
+        if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+        let beans = loadBeans().filter(b => b.name !== name);
+        saveBeans(beans);
+        renderBeanLibrary();
+        renderBeanListInModal();
+        document.getElementById('beansUsed').value = '';
+        document.getElementById('beanCost').value = '';
+        showToast(`"${name}" deleted.`, 'info');
+    }
+    function handleBeanSelection() {
+        setFormDirty();
+        const name = document.getElementById('beansUsed').value;
+        const bean = loadBeans().find(b => b.name === name);
+        if (bean) {
+            const beanUnit = bean.costUnit || 'lb';
+            if (beanUnit !== currentCostUnits) {
+                showToast(`Warning: This bean's cost (${currentCurrencySymbol}${bean.cost.toFixed(2)}/${beanUnit}) doesn't match your settings (${currentCostUnits}).`, 'error');
+            }
+            document.getElementById('beanCost').value = bean.cost.toFixed(2);
+        } else {
+            document.getElementById('beanCost').value = '';
+        }
+    }
+
+    // --- SETTINGS MODAL ---
+    function openSettingsModal() {
+        const settings = loadSettings();
+        for (const [level, ranges] of Object.entries(settings)) {
+            const key = level.toLowerCase();
+            document.getElementById(`${key}-dtr-min`).value = ranges.dtrRange[0];
+            document.getElementById(`${key}-dtr-max`).value = ranges.dtrRange[1];
+            document.getElementById(`${key}-wl-min`).value = ranges.wlRange[0];
+            document.getElementById(`${key}-wl-max`).value = ranges.wlRange[1];
+        }
+       
+        const overheads = loadOverheadCosts();
+        document.getElementById('laborCost').value = overheads.labor || '';
+        document.getElementById('utilityCost').value = overheads.utility || '';
+        document.getElementById('avgPackagingCost').value = overheads.packaging || '';
+        document.getElementById('depreciationCost').value = overheads.depreciation || '';
+       
+        loadCurrencySymbol();
+        updateSettingsModalCurrencyUI();
+        updateTempUnitUI();
+        updateCostUnitUI();
+        openModal('settingsModal');
+    }
+    function closeSettingsModal() { closeModal('settingsModal'); }
+
+   function populateSettingsUI() {
+    const settings = loadSettings(); // Get the saved data
+    
+    // This loop matches the one in your Save function
+    for (const level of Object.keys(defaultSettings)) {
+        const key = level.toLowerCase();
+        const data = settings[level] || defaultSettings[level];
+
+        // Put the DTR values in the boxes
+        if (document.getElementById(`${key}-dtr-min`)) {
+            document.getElementById(`${key}-dtr-min`).value = data.dtrRange[0];
+            document.getElementById(`${key}-dtr-max`).value = data.dtrRange[1];
+        }
+        
+        // Put the Weight Loss (WL) values in the boxes
+        if (document.getElementById(`${key}-wl-min`)) {
+            document.getElementById(`${key}-wl-min`).value = data.wlRange[0];
+            document.getElementById(`${key}-wl-max`).value = data.wlRange[1];
+        }
+    }
+}   
+    function handleSaveSettings() {
+        const newSettings = {};
+        try {
+            for (const level of Object.keys(defaultSettings)) {
+                const key = level.toLowerCase();
+                const dtrMin = parseFloat(document.getElementById(`${key}-dtr-min`).value);
+                const dtrMax = parseFloat(document.getElementById(`${key}-dtr-max`).value);
+                const wlMin = parseFloat(document.getElementById(`${key}-wl-min`).value);
+                const wlMax = parseFloat(document.getElementById(`${key}-wl-max`).value);
+                if ([dtrMin, dtrMax, wlMin, wlMax].some(isNaN)) throw new Error(`Invalid input for ${level}.`);
+                if (dtrMin >= dtrMax || wlMin >= wlMax) throw new Error(`Min must be less than Max for ${level}.`);
+                newSettings[level] = { dtrRange: [dtrMin, dtrMax], wlRange: [wlMin, wlMax] };
+            }
+            saveSettings(newSettings);
+           
+            const labor = parseFloat(document.getElementById('laborCost').value) || 0;
+            const utility = parseFloat(document.getElementById('utilityCost').value) || 0;
+            const packaging = parseFloat(document.getElementById('avgPackagingCost').value) || 0;
+            const depreciation = parseFloat(document.getElementById('depreciationCost').value) || 0;
+            saveOverheadCosts({ labor, utility, packaging, depreciation });
+           
+            saveCurrencySymbol(document.getElementById('currencySymbol').value);
+           
+            closeSettingsModal();
+            showToast("Settings saved!", 'success');
+        } catch (error) {
+            showToast(`Error: ${error.message}`, 'error');
+        }
+    }
+    function handleResetSettings() {
+        if (confirm("Reset all settings to defaults?")) {
+            saveSettings(defaultSettings);
+            saveOverheadCosts({ labor: 0, utility: 0, packaging: 0, depreciation: 0 });
+            saveCurrencySymbol('$');
+            openSettingsModal();
+            showToast('Settings reset to default.', 'info');
+        }
+    }
+
+    // --- Utility Calculator Functions ---
+    function openUtilityModal() { openModal('utilityModal'); }
+    function closeUtilityModal() { closeModal('utilityModal'); }
+   
+    // --- Depreciation Calculator Functions (v4.5) ---
+    function openDepreciationModal() { openModal('depreciationModal'); }
+    function closeDepreciationModal() { closeModal('depreciationModal'); }
+   
+    window.setLifespan = function(hours) {
+        document.getElementById('assetLifespan').value = hours;
+    }
+
+    function handleCalculateDepreciation() {
+        try {
+            const cost = parseFloat(document.getElementById('assetCost').value);
+            const lifespan = parseFloat(document.getElementById('assetLifespan').value);
+            if (isNaN(cost) || isNaN(lifespan) || cost <= 0 || lifespan <= 0) {
+                throw new Error("Please enter valid positive numbers for Cost and Lifespan.");
+            }
+            const hourlyDep = cost / lifespan;
+            document.getElementById('depreciationCost').value = hourlyDep.toFixed(2);
+            closeDepreciationModal();
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    }
+
+    function toggleEnergyType(type) {
+        currentEnergyType = type;
+        document.getElementById('electricFields').classList.toggle('hidden', type !== 'electric');
+        document.getElementById('gasFields').classList.toggle('hidden', type !== 'gas');
+        document.getElementById('energyToggleElectric').classList.toggle('active', type === 'electric');
+        document.getElementById('energyToggleGas').classList.toggle('active', type === 'gas');
+    }
+    function handleCalculateUtility() {
+        let hourlyCost = 0;
+        try {
+            if (currentEnergyType === 'electric') {
+                const use = parseFloat(document.getElementById('roasterEnergyUse').value);
+                const price = parseFloat(document.getElementById('energyPrice').value);
+                if (isNaN(use) || isNaN(price) || use < 0 || price < 0) throw new Error(`Please enter valid, positive numbers for kW and ${currentCurrencySymbol}/kWh.`);
+                hourlyCost = use * price;
+            } else { // 'gas'
+                const btu = parseFloat(document.getElementById('roasterBTU').value);
+                const price = parseFloat(document.getElementById('gasPrice').value);
+                if (isNaN(btu) || isNaN(price) || btu < 0 || price < 0) throw new Error(`Please enter valid, positive numbers for BTU/hr and ${currentCurrencySymbol}/therm.`);
+                hourlyCost = (btu * BTU_TO_THERM) * price;
+            }
+            document.getElementById('utilityCost').value = hourlyCost.toFixed(2);
+            closeUtilityModal();
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    }
+
+    // --- HISTORY MODAL ---
+    function openHistoryModal() {
+        if (!checkUnsaved()) return;
+        populateHistoryFilters();
+        renderHistoryList();
+        openModal('historyModal');
+    }
+    function closeHistoryModal() { closeModal('historyModal'); }
+   
+    function populateHistoryFilters() {
+        const history = loadHistory();
+        const beanFilter = document.getElementById('historyBeanFilter');
+        const beanNames = [...new Set(history.map(roast => roast.inputs.beanName))];
+        const currentVal = beanFilter.value;
+        beanFilter.innerHTML = '<option value="">-- Filter by Bean --</option>';
+        beanNames.sort().forEach(name => {
+            beanFilter.innerHTML += `<option value="${name}">${name}</option>`;
+        });
+        beanFilter.value = currentVal;
+    }
+   
+    function renderHistoryList() {
+    const searchTerm = document.getElementById('historySearch').value.toLowerCase();
+    const beanFilter = document.getElementById('historyBeanFilter').value;
+    const favoriteFilter = document.getElementById('historyFavoriteFilter').checked;
+    
+    const history = loadHistory();
+    const listEl = document.getElementById('historyList');
+    if (!listEl) return;
+
+    const filteredHistory = history.filter(entry => {
+        const inputs = entry.inputs || {};
+        const matchesSearch = !searchTerm || (
+            (entry.id && entry.id.toLowerCase().includes(searchTerm)) ||
+            (inputs.roastName && inputs.roastName.toLowerCase().includes(searchTerm)) ||
+            (inputs.beanName && inputs.beanName.toLowerCase().includes(searchTerm))
+        );
+        const matchesBean = !beanFilter || (inputs.beanName === beanFilter);
+        const matchesFav = !favoriteFilter || entry.isFavorite;
+        return matchesSearch && matchesBean && matchesFav;
+    });
+
+    listEl.innerHTML = '';
+    if (filteredHistory.length === 0) {
+        listEl.innerHTML = '<p class="text-sm text-gray-500 p-4 text-center">No roasts match your filter.</p>';
+        return;
+    }
+       
+    filteredHistory.sort((a, b) => new Date(b.roastDate) - new Date(a.roastDate));
+    filteredHistory.forEach(roast => {
+        const item = document.createElement('div');
+        item.className = 'history-item text-sm items-center py-3 border-b';
+        
+        const rating = (roast.outputs && roast.outputs.rating) ? roast.outputs.rating : 'N/A';
+        const dtr = (roast.outputs && roast.outputs.dtr) ? roast.outputs.dtr.toFixed(1) : '0.0';
+        const wl = (roast.outputs && roast.outputs.weightLoss) ? roast.outputs.weightLoss.toFixed(1) : '0.0';
+        
+        // Generate clickable stars for the history row
+        let starHtml = '<div class="flex text-lg">';
+        for (let i = 1; i <= 5; i++) {
+            const isFilled = i <= (roast.inputs.rating || 0);
+            starHtml += `<span onclick="updateHistoryRating('${roast.id}', ${i})" class="cursor-pointer ${isFilled ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-500">★</span>`;
+        }
+        starHtml += '</div>';
+
+        item.innerHTML = `
+            <div class="flex items-center justify-center">
+                <span onclick="window.toggleFavorite('${roast.id}')" class="cursor-pointer text-xl">${roast.isFavorite ? '⭐' : '☆'}</span>
+            </div>
+            <div>
+                <strong class="text-gray-900">${roast.inputs.roastName || 'Untitled'}</strong>
+                <div class="text-[10px] text-gray-400 uppercase font-bold">${new Date(roast.roastDate).toLocaleDateString()}</div>
+            </div>
+            <span class="text-gray-600 font-medium">${roast.inputs.beanName || 'No Bean'}</span>
+            <span class="font-extrabold text-blue-600">${rating}</span>
+            <span class="text-gray-500">${dtr}% / ${wl}%</span>
+            ${starHtml}
+            <div class="flex gap-2 justify-end">
+                <button onclick="loadRoastFromHistory('${roast.id}')" title="View Roast Details" class="p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition">📂</button>
+                <button onclick="deleteRoastFromHistory('${roast.id}')" title="Permanently Delete Roast" class="p-2 bg-red-50 text-red-600 rounded hover:bg-red-100 transition">🗑️</button>
+            </div>
+        `;
+        listEl.appendChild(item);
+    });
+}
+   
+    window.toggleFavorite = function(id) { // <--- Make sure (id) is inside these parentheses!
+    const history = loadHistory();
+    const index = history.findIndex(r => r.id === id); 
+    if (index > -1) {
+        history[index].isFavorite = !history[index].isFavorite;
+        saveHistory(history);
+        renderHistoryList();
+    }
+};
+    window.updateHistoryRating = function(id, newVal) {
+    const history = loadHistory();
+    const index = history.findIndex(r => r.id === id);
+    if (index > -1) {
+        history[index].inputs.rating = newVal;
+        saveHistory(history);
+        renderHistoryList(); // Refresh the UI instantly
+        showToast("Rating updated!", "success");
+    }
+};   
+    window.loadRoastFromHistory = function(id) {
+    if (!checkUnsaved()) return;
+   
+    const roast = loadHistory().find(r => r.id === id);
+    if (!roast) return showToast('Error: Could not find roast.', 'error');
+
+    // 1. Load Units (Crucial to make costs and temps display correctly)
+    saveTempUnitsPref(roast.inputs.tempUnits || 'C');
+    saveCostUnitsPref(roast.inputs.costUnit || 'lb');
+
+    // 2. Load Input Values
+    const beansUsedSelect = document.getElementById('beansUsed');
+    beansUsedSelect.value = roast.inputs.beanName;
+    // We intentionally DO NOT dispatch a 'change' event here, as we are handling updates manually below.
+   
+    document.getElementById('roastName').value = roast.inputs.roastName;
+    document.getElementById('targetRoastLevel').value = roast.inputs.targetRoastLevel;
+    document.getElementById('startWeight').value = roast.inputs.startWeight;
+    document.getElementById('endWeight').value = roast.inputs.endWeight;
+    document.getElementById('firstCrackTime').value = roast.inputs.firstCrackTime;
+    document.getElementById('dropTime').value = roast.inputs.dropTime;
+    document.getElementById('unitsPackaged').value = roast.inputs.unitsPackaged || '';
+    document.getElementById('roastData').value = roast.inputs.roastDataStr;
+    document.getElementById('roastNotes').value = roast.inputs.notes || '';
+   
+    // 3. Manually populate the green bean cost field directly from history data
+    //    (This bypasses the need to check the local bean library, which is cleaner)
+    document.getElementById('beanCost').value = roast.inputs.beanCost.toFixed(2);
+
+    // 4. Force visibility of the results section
+    document.getElementById('results-placeholder').style.display = 'none';
+    document.getElementById('results-wrapper').style.display = 'block';
+
+    // 5. Re-run analysis to populate output fields and chart (Crucial: saveToHistory=false)
+    analyzeRoast(false);
+   
+    closeHistoryModal();
+    isFormDirty = false;
+}
+    window.deleteRoastFromHistory = function(id) {
+        if (!confirm('Permanently delete this roast?')) return;
+        saveHistory(loadHistory().filter(r => r.id !== id));
+        renderHistoryList();
+        showToast('Roast deleted.', 'info');
+    }
+   
+    function migrateHistory() {
+        try {
+            const oldKeys = [OLD_HISTORY_KEY_1, OLD_HISTORY_KEY_2, OLD_HISTORY_KEY_3, OLD_HISTORY_KEY_4];
+            let allOldRoasts = [];
+            let currentHistory = loadHistory();
+           
+            oldKeys.forEach(key => {
+                try {
+                    const oldData = JSON.parse(localStorage.getItem(key)) || [];
+                    if (oldData.length > 0) {
+                        allOldRoasts.push(...oldData);
+                    }
+                } catch(e) { console.warn(`Could not parse old history key: ${key}`); }
+            });
+           
+            if (allOldRoasts.length === 0) {
+                showToast('History Migration: No old roast history was found.', 'info');
+                return;
+            }
+
+            console.log(`Found ${allOldRoasts.length} old roast records...`);
+            const migratedHistory = allOldRoasts.map(roast => {
+                if (!roast || !roast.id || !roast.inputs || !roast.outputs) return null;
+               
+                const alreadyExists = currentHistory.some(newRoast => newRoast.id === roast.id || newRoast.roastDate === roast.roastDate);
+                if (alreadyExists) return null;
+               
+                return {
+                    ...roast,
+                    isFavorite: false,
+                    inputs: {
+                        ...roast.inputs,
+                        notes: roast.inputs.notes || '',
+                        unitsPackaged: roast.inputs.unitsPackaged || 0,
+                        tempUnits: roast.inputs.tempUnits || 'F',
+                        costUnit: roast.inputs.costUnit || 'lb'
+                    },
+                    outputs: {
+                        ...roast.outputs,
+                        beanCostBreakdown: roast.outputs.beanCostBreakdown || roast.outputs.roastCost || 0,
+                        laborCostBreakdown: roast.outputs.laborCostBreakdown || 0,
+                        utilityCostBreakdown: roast.outputs.utilityCostBreakdown || 0,
+                        packagingCostBreakdown: roast.outputs.packagingCostBreakdown || 0,
+                        depreciationCostBreakdown: 0 // New in v4.5
+                    }
+                };
+            }).filter(Boolean);
+
+            if (migratedHistory.length > 0) {
+                const finalHistory = [...currentHistory, ...migratedHistory];
+                saveHistory(finalHistory);
+                showToast(`History Migration: Successfully found and moved ${migratedHistory.length} old roast records!`, 'success');
+            } else {
+                showToast('History Migration: No new roasts were found to migrate.', 'info');
+            }
+           
+            oldKeys.forEach(key => localStorage.removeItem(key));
+       
+        } catch (error) {
+            console.error("Error during history migration:", error);
+            showToast("An error occurred during the history recovery. Please check the console (F12) for details.", 'error');
+            const oldKeys = [OLD_HISTORY_KEY_1, OLD_HISTORY_KEY_2, OLD_HISTORY_KEY_3, OLD_HISTORY_KEY_4];
+            oldKeys.forEach(key => localStorage.removeItem(key));
+        }
+    }
+
+    const DB_KEYS_TO_BACKUP = [
+        BEANS_DB_KEY,
+        SETTINGS_DB_KEY,
+        ROAST_HISTORY_KEY,
+        TEMP_UNITS_PREF_KEY,
+        COST_UNITS_PREF_KEY,
+        OVERHEAD_COSTS_KEY,
+        CURRENCY_SYMBOL_KEY
+    ];
+
+    function exportData() {
+        try {
+            let backupData = {};
+            DB_KEYS_TO_BACKUP.forEach(key => {
+                const data = localStorage.getItem(key);
+                if (data) {
+                    backupData[key] = data;
+                }
+            });
+
+            if (Object.keys(backupData).length === 0) {
+                showToast("No data found to export.", 'info');
+                return;
+            }
+
+            const dataStr = JSON.stringify(backupData);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            const date = new Date().toISOString().split('T')[0];
+            link.download = `roast_analyzer_backup_${date}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast("Backup complete! A file has been saved to your downloads.", 'success');
+        } catch (error) {
+            showToast("An error occurred during export. Check the console for details.", 'error');
+            console.error("Export error:", error);
+        }
+    }
+
+    function importData() {
+        document.getElementById('importFile').click();
+    }
+
+    function processImportFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.type !== 'application/json') {
+            showToast('Error: Please select a valid .json backup file.', 'error');
+            return;
+        }
+        if (!confirm('This will OVERWRITE all current data and is NOT reversible. Are you sure?')) {
+            e.target.value = null;
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target.result);
+                let importedCount = 0;
+               
+                DB_KEYS_TO_BACKUP.forEach(key => {
+                    if (data[key]) {
+                        localStorage.setItem(key, data[key]);
+                        importedCount++;
+                    }
+                });
+
+                if (importedCount === 0) {
+                    showToast("Import failed: This doesn't appear to be a valid backup file.", 'error');
+                } else {
+                    showToast("Restore successful! The app will now reload to apply all changes.", 'success');
+                    setTimeout(() => location.reload(), 1500);
+                }
+            } catch (err) {
+                showToast('Error reading file: ' + err.message, 'error');
+            }
+            e.target.value = null;
+        };
+        reader.readAsText(file);
+    }
+
+    function processArtisanFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.type !== 'application/json') {
+            showToast('Error: Please select a valid Artisan .json file.', 'error');
+            return;
+        }
+        if (!checkUnsaved()) {
+             e.target.value = null;
+            return;
+        }
+       
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target.result);
+               
+                let timeArray, tempArray, unit;
+
+                if (data.timex && data.temp1) {
+                    timeArray = data.timex;
+                    tempArray = data.temp1;
+                    unit = data.mode ? data.mode.toUpperCase() : 'C';
+                }
+                else if (data.roast_profile && data.roast_profile.temp_data) {
+                    timeArray = data.roast_profile.temp_data.TIME;
+                    tempArray = data.roast_profile.temp_data.BT;
+                    if (data.roast_profile.temp_data.BT_unit) {
+                         unit = data.roast_profile.temp_data.BT_unit.includes('F') ? 'F' : 'C';
+                    }
+                }
+
+                if (!timeArray || !tempArray || timeArray.length === 0 || tempArray.length === 0) {
+                    throw new Error("This doesn't appear to be a valid Artisan JSON export.");
+                }
+
+                document.getElementById('roastName').value = data.title || `Artisan Import - ${new Date().toLocaleDateString()}`;
+               
+                saveTempUnitsPref(unit || 'C');
+               
+                let logStr = "";
+                for (let i = 0; i < timeArray.length; i++) {
+                    if (tempArray[i] > 0) {
+                        const time = formatSecondsToTime(timeArray[i]);
+                        const temp = tempArray[i].toFixed(1);
+                        logStr += `${time}, ${temp}\n`;
+                    }
+                }
+               
+                document.getElementById('roastData').value = logStr;
+               
+                showToast("Artisan data imported successfully!", 'success');
+                setFormDirty();
+               
+            } catch (err) {
+                showToast('Error reading Artisan file: ' + err.message, 'error');
+                console.error(err);
+            }
+            e.target.value = null;
+        };
+        reader.readAsText(file);
+    }
+   
+    // --- DOM CONTENT LOADED ---
+    function processHiBeanFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const data = JSON.parse(event.target.result);
+            // Auto-fills the form with HiBean mobile data
+            document.getElementById('roastName').value = data.roastName || 'HiBean Import';
+            document.getElementById('startWeight').value = data.greenWeight || '';
+            document.getElementById('endWeight').value = data.roastedWeight || '';
+            document.getElementById('roastData').value = data.tempLogs ? data.tempLogs.join('\n') : '';
+            showToast("HiBean data imported successfully!", 'success');
+            generateRoRGuide();
+            setFormDirty();
+        } catch (err) {
+            showToast('Error reading HiBean file.', 'error');
+        }
+    };
+    reader.readAsText(file);
+}
+// --- CUSTOMER MANAGEMENT LOGIC ---
+function addCustomer() {
+    const name = document.getElementById('newCustName').value.trim();
+    const email = document.getElementById('newCustEmail').value.trim();
+    if (!name) { showToast("Please enter a customer name.", "error"); return; }
+
+    const customers = loadCustomers();
+    customers.push({ name, email, id: Date.now() });
+    saveCustomers(customers);
+    
+    document.getElementById('newCustName').value = '';
+    document.getElementById('newCustEmail').value = '';
+    renderCustomerList();
+    renderCustomerDropdown(); // Updates the roast entry dropdown immediately
+    showToast("Customer saved!", "success");
+}
+
+function renderCustomerList(searchTerm = '') {
+    const listEl = document.getElementById('customerList');
+    if (!listEl) return;
+    let customers = loadCustomers().sort((a, b) => a.name.localeCompare(b.name));
+    if (searchTerm) {
+        customers = customers.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+    listEl.innerHTML = customers.map(c => `
+        <div class="flex justify-between items-center p-2 border-b text-sm">
+            <span><strong>${c.name}</strong> ${c.email ? `<span class="text-xs text-gray-500">(${c.email})</span>` : ''}</span>
+            <button onclick="deleteCustomer(${c.id})" class="text-red-500 hover:text-red-700 font-bold">&times;</button>
+        </div>
+    `).join('') || '<p class="text-gray-400 text-center p-4 text-xs italic">No customers saved yet.</p>';
+}
+
+window.deleteCustomer = function(id) {
+    if (!confirm("Delete this customer?")) return;
+    const customers = loadCustomers().filter(c => c.id !== id);
+    saveCustomers(customers);
+    renderCustomerList();
+    renderCustomerDropdown();
+    showToast("Customer removed.", "info");
+};
+    document.addEventListener('DOMContentLoaded', () => {
+       
+        document.getElementById('results-placeholder').style.display = 'block';
+        document.getElementById('results-wrapper').style.display = 'none';
+        document.getElementById('importHiBeanButton')?.addEventListener('click', () => document.getElementById('hiBeanFile').click());
+        document.getElementById('hiBeanFile')?.addEventListener('change', processHiBeanFile);
+        document.getElementById('analyzeButton').addEventListener('click', () => analyzeRoast(true));
+        document.getElementById('clearFormButton').addEventListener('click', () => clearResults(true, true));
+        document.getElementById('endWeight').addEventListener('input', updateOunces);
+        document.getElementById('beansUsed').addEventListener('change', handleBeanSelection);
+        
+        document.getElementById('closeBeanModalButton').addEventListener('click', () => closeModal('beanModal'));
+        document.getElementById('saveBeanButton').addEventListener('click', addNewBean);
+        document.getElementById('clearBeanFormButton').addEventListener('click', clearBeanForm);
+        document.getElementById('closeSettingsModalButton').addEventListener('click', () => closeModal('settingsModal'));
+        document.getElementById('saveSettingsButton').addEventListener('click', handleSaveSettings);
+        document.getElementById('resetSettingsButton').addEventListener('click', handleResetSettings);
+        document.getElementById('historyBtn').addEventListener('click', openHistoryModal);
+        document.getElementById('closeHistoryModalButton').addEventListener('click', () => closeModal('historyModal'));
+       
+        document.getElementById('historyRescueButton').addEventListener('click', migrateHistory);
+        document.getElementById('exportButton').addEventListener('click', exportData);
+        document.getElementById('importButton').addEventListener('click', importData);
+        document.getElementById('importFile').addEventListener('change', processImportFile);
+       
+        document.getElementById('importArtisanButton').addEventListener('click', () => document.getElementById('artisanFile').click());
+        document.getElementById('artisanFile').addEventListener('change', processArtisanFile);
+       
+
+        document.getElementById('modalUnitToggleC').addEventListener('click', () => saveTempUnitsPref('C'));
+        document.getElementById('modalUnitToggleF').addEventListener('click', () => saveTempUnitsPref('F'));
+        document.getElementById('costUnitToggleLB').addEventListener('click', () => saveCostUnitsPref('lb'));
+        document.getElementById('costUnitToggleKG').addEventListener('click', () => saveCostUnitsPref('kg'));
+
+        document.getElementById('calculateUtilityButton').addEventListener('click', openUtilityModal);
+        document.getElementById('closeUtilityModalButton').addEventListener('click', () => closeModal('utilityModal'));
+        document.getElementById('calculateUtilityCostButton').addEventListener('click', handleCalculateUtility);
+        document.getElementById('energyToggleElectric').addEventListener('click', () => toggleEnergyType('electric'));
+        document.getElementById('energyToggleGas').addEventListener('click', () => toggleEnergyType('gas'));
+
+        // New Listeners for Depreciation (v4.5)
+        document.getElementById('calculateDepreciationButton').addEventListener('click', openDepreciationModal);
+        document.getElementById('closeDepreciationModalButton').addEventListener('click', closeDepreciationModal);
+        document.getElementById('runDepreciationCalcButton').addEventListener('click', handleCalculateDepreciation);
+
+        document.getElementById('historySearch').addEventListener('input', renderHistoryList);
+        document.getElementById('historyBeanFilter').addEventListener('change', renderHistoryList);
+        document.getElementById('historyFavoriteFilter').addEventListener('change', renderHistoryList);
+
+        document.getElementById('currencySymbol').addEventListener('change', () => {
+            saveCurrencySymbol(document.getElementById('currencySymbol').value);
+            updateSettingsModalCurrencyUI();
+
+            renderCustomerList();
+            renderCustomerDropdown();
+        });
+
+        loadTempUnitsPref();
+        loadCostUnitsPref();
+        loadCurrencySymbol();
+        updateCurrencySymbolUI();
+        renderBeanLibrary();
+        renderCustomerDropdown();
+        generateRoRGuide();
+       
+        const now = new Date();
+        const dateStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
+        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        if (!document.getElementById('roastName').value) {
+            document.getElementById('roastName').value = `Roast - ${dateStr} ${timeStr}`;
+        }
+        isFormDirty = false;
+    });
+
+    // --- HELPER FUNCTIONS ---
+    function parseTimeToSeconds(timeStr) {
+        if (timeStr === null || timeStr === undefined) return null;
+        let str = String(timeStr).trim();
+       
+        if (str === "") return null;
+
+        // Handle M:SS and M.SS
+        if (str.includes(':') || str.includes('.')) {
+            const parts = str.split(/[.:]/);
+            if (parts.length === 2) {
+                const min = parseInt(parts[0], 10);
+                const sec = parseInt(parts[1], 10);
+                if (!isNaN(min) && !isNaN(sec) && sec < 60) {
+                    return (min * 60) + sec;
+                }
+            }
+        }
+
+        if (/^\d+$/.test(str)) {
+            if (str.length <= 2) {
+                const min = parseInt(str, 10);
+                return min * 60;
+            }
+            if (str.length === 3) {
+                const min = parseInt(str.charAt(0), 10);
+                const sec = parseInt(str.substring(1), 10);
+                if (sec >= 60) return null;
+                return (min * 60) + sec;
+            }
+            if (str.length === 4) {
+                const min = parseInt(str.substring(0, 2), 10);
+                const sec = parseInt(str.substring(2), 10);
+                if (sec >= 60) return null;
+                return (min * 60) + sec;
+            }
+        }
+       
+        if (!isNaN(str)) {
+             return parseFloat(str);
+        }
+
+        return null;
+    }
+    function formatSecondsToTime(totalSeconds) {
+        if (isNaN(totalSeconds) || totalSeconds < 0) return 'N/A';
+        const min = Math.floor(totalSeconds / 60);
+        const sec = Math.round(totalSeconds % 60);
+        return `${min}:${sec.toString().padStart(2, '0')}`;
+    }
+    function updateOunces() {
+        const g = parseFloat(document.getElementById('endWeight').value);
+        document.getElementById('endWeightOz').textContent = (!isNaN(g) && g > 0) ? `${(g * 0.035274).toFixed(2)} oz` : '-';
+        setFormDirty();
+    }
+    // --- SEPARATE CLEAR FUNCTION ---
+    function clearResults(clearChart, clearInputs) {
+        // Only hide the results if we are specifically asked to clear the whole form
+        if (clearInputs) {
+            const placeholder = document.getElementById('results-placeholder');
+            const wrapper = document.getElementById('results-wrapper');
+            if (placeholder) placeholder.style.display = 'block';
+            if (wrapper) wrapper.style.display = 'none';
+
+            const inputIds = ['roastName', 'beansUsed', 'startWeight', 'endWeight', 'firstCrackTime', 'dropTime', 'unitsPackaged', 'roastNotes'];
+            inputIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            setRating(0);
+
+            // Reset Roast Name
+            const now = new Date();
+            const dateStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            const roastNameEl = document.getElementById('roastName');
+            if (roastNameEl) roastNameEl.value = `Roast - ${dateStr} ${timeStr}`;
+            
+            isFormDirty = false;
+        }
+
+        if (clearChart && typeof roastChart !== 'undefined' && roastChart) {
+            roastChart.destroy();
+            roastChart = null;
+        }
+    }
+
+// --- MAIN ANALYSIS FUNCTION ---
+    function analyzeRoast(saveToHistory = true) {
+        // Clear previous results before starting
+        clearResults(false, false);
+
+        const inputs = {
+            roastName: document.getElementById('roastName').value,
+            beanName: document.getElementById('beansUsed').options[document.getElementById('beansUsed').selectedIndex].text,
+            rating: currentBatchRating,
+            targetRoastLevel: document.getElementById('targetRoastLevel').value,
+            startWeight: parseFloat(document.getElementById('startWeight').value),
+            endWeight: parseFloat(document.getElementById('endWeight').value),
+            firstCrackTime: document.getElementById('firstCrackTime').value,
+            dropTime: document.getElementById('dropTime').value,
+            unitsPackaged: parseFloat(document.getElementById('unitsPackaged').value) || 0,
+            roastDataStr: document.getElementById('roastData').value,
+            notes: document.getElementById('roastNotes').value,
+            beanCost: parseFloat(document.getElementById('beanCost').value),
+            tempUnits: currentTempUnits,
+            costUnit: currentCostUnits,
+        };
+        
+        const firstCrackSec = parseTimeToSeconds(inputs.firstCrackTime);
+        const dropTimeSec = parseTimeToSeconds(inputs.dropTime);
+
+        let isValid = true;
+        if (isNaN(inputs.startWeight) || inputs.startWeight <= 0) isValid = false;
+        if (isNaN(inputs.endWeight) || inputs.endWeight <= 0 || inputs.endWeight >= inputs.startWeight) isValid = false;
+        if (firstCrackSec === null || dropTimeSec === null || firstCrackSec >= dropTimeSec) isValid = false;
+        if (!inputs.roastDataStr.trim()) isValid = false;
+        
+        if (!isValid) {
+            console.log("Validation Failed. Inputs:", inputs);
+            if (saveToHistory) showToast("Please fill in all valid roast data to analyze.", 'error');
+            return;
+        }
+        
+        // Show the results wrapper
+        document.getElementById('results-placeholder').style.display = 'none';
+        document.getElementById('results-wrapper').style.display = 'block';
+
+        const parsedDataC = parseRoastLog(inputs.roastDataStr, inputs.tempUnits);
+        const weightLoss = ((inputs.startWeight - inputs.endWeight) / inputs.startWeight) * 100;
+        const devTime = dropTimeSec - firstCrackSec;
+        const totalRoastTimeHours = dropTimeSec / 3600;
+        const dtr = (devTime / dropTimeSec) * 100;
+
+        // Get Sensory Profile
+        const profile = getSensoryProfile(dtr, weightLoss, inputs.targetRoastLevel, parsedDataC, firstCrackSec);
+                
+        // Calculate Inventory String
+        let inventoryString = "N/A";
+        const bean = loadBeans().find(b => b.name === inputs.beanName);
+        if (bean) {
+            inventoryString = `${bean.inventory.toFixed(2)} ${bean.costUnit || currentCostUnits}`;
+        }
+
+        // Calculate Individual Costs
+        const overheads = loadOverheadCosts();
+        const startWeightLb = inputs.startWeight * G_TO_LB;
+        const beanCostForBatch = startWeightLb * inputs.beanCost;
+        const laborCostForBatch = (overheads.labor || 0) * totalRoastTimeHours;
+        const utilityCostForBatch = (overheads.utility || 0) * totalRoastTimeHours;
+        const packagingCostForBatch = (overheads.packaging || 0) * inputs.unitsPackaged;
+        const depreciationCostForBatch = (overheads.depreciation || 0) * totalRoastTimeHours;
+        const totalRoastCost = beanCostForBatch + laborCostForBatch + utilityCostForBatch + packagingCostForBatch + depreciationCostForBatch;
+
+        // 1. Pack the Math into 'outputs'
+        const outputs = {
+            weightLoss, 
+            devTime, 
+            dtr,
+            roastCost: totalRoastCost,
+            costPerRoastedUnit: totalRoastCost / (inputs.endWeight * G_TO_LB),
+            ...profile
+        };
+
+        // 2. Define the Mapping
+        const finalMapping = {
+            'weightLossResult': `${weightLoss.toFixed(1)}%`,
+            'devTimeResult': formatSecondsToTime(devTime),
+            'dtrResult': `${dtr.toFixed(1)}%`,
+            'rorResult': profile.rorAtFirstCrack || '-',
+            'ratingResult': `${profile.rating}/100`,
+            'roastCostResult': `${currentCurrencySymbol}${totalRoastCost.toFixed(2)}`,
+            'roastCostResult_copy': `${currentCurrencySymbol}${totalRoastCost.toFixed(2)}`,
+            'costPerUnitResult': `${currentCurrencySymbol}${outputs.costPerRoastedUnit.toFixed(2)}`,
+            'inventoryRemainingResult': inventoryString || '-',
+            'beanCostBreakdown': `${currentCurrencySymbol}${beanCostForBatch.toFixed(2)}`,
+            'laborCostBreakdown': `${currentCurrencySymbol}${laborCostForBatch.toFixed(2)}`,
+            'utilityCostBreakdown': `${currentCurrencySymbol}${utilityCostForBatch.toFixed(2)}`,
+            'packagingCostBreakdown': `${currentCurrencySymbol}${packagingCostForBatch.toFixed(2)}`,
+            'depreciationCostBreakdown': `${currentCurrencySymbol}${depreciationCostForBatch.toFixed(2)}`,
+            'aromaResult': profile.aroma,
+            'acidityResult': profile.acidity,
+            'bodyResult': profile.body,
+            'flavorResult': profile.flavor,
+            'impressionResult': profile.impression,
+            'strategyResult': profile.strategy || 'Profile Analyzed'
+        };
+
+        // 3. Push to UI
+        for (const [id, value] of Object.entries(finalMapping)) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        }
+
+        // 4. Force Chart Render (Blue Line Fix)
+        if (typeof renderChart === 'function') {
+            const rorDataC = [];
+            for (let i = 1; i < parsedDataC.length; i++) {
+                const timeDiff = parsedDataC[i].time - parsedDataC[i - 1].time;
+                if (timeDiff > 0) {
+                    const tempDiffC = parsedDataC[i].tempC - parsedDataC[i - 1].tempC;
+                    rorDataC.push({ time: parsedDataC[i].time, rorC: (tempDiffC / timeDiff) * 60 });
+                }
+            }
+            renderChart(parsedDataC, rorDataC);
+        }
+
+        // 5. Save to History (Using the verified 'outputs' object)
+        if (saveToHistory) {
+            const history = loadHistory();
+            history.push({ id: `roast_${Date.now()}`, roastDate: new Date().toISOString(), inputs, outputs });
+            saveHistory(history);
+            showToast("Roast saved successfully!", "success");
+        }
+    } // This CLOSES analyzeRoast
+
+    // --- SEPARATE CLEAR FUNCTION ---
+    function clearResults(clearChart, clearInputs) {
+        document.getElementById('results-placeholder').style.display = 'block';
+        document.getElementById('results-wrapper').style.display = 'none';
+
+        if (clearInputs) {
+            const inputIds = ['roastName', 'beansUsed', 'startWeight', 'endWeight', 'firstCrackTime', 'dropTime', 'unitsPackaged', 'roastNotes'];
+            inputIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            setRating(0);
+
+            // Generate a fresh Roast Name with new timestamp
+            const now = new Date();
+            const dateStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            const roastNameEl = document.getElementById('roastName');
+            if (roastNameEl) roastNameEl.value = `Roast - ${dateStr} ${timeStr}`;
+            
+            isFormDirty = false;
+        } // This correctly closes the 'if (clearInputs)' block
+
+        // 4. Wipe Chart
+        if (clearChart && typeof roastChart !== 'undefined' && roastChart) {
+            roastChart.destroy();
+            roastChart = null;
+        }
+    } // This correctly closes the entire 'clearResults' function
+
+    function parseRoastLog(logStr, units) {
+        let intervalCounter = 1;
+        let lastExplicitTime = 0;
+        return logStr.trim().split('\n').map(line => {
+            const parts = line.trim().split(/[,\s\t]+/);
+            let time = null, temp = null;
+            if (parts.length === 1 && !isNaN(parts[0])) {
+                temp = parseFloat(parts[0]);
+                time = lastExplicitTime + (intervalCounter * 30);
+                intervalCounter++;
+            } else if (parts.length >= 2) {
+                const parsedTime = parseTimeToSeconds(parts[0]);
+                const parsedTemp = parseFloat(parts[1]);
+                if (parsedTime !== null && !isNaN(parsedTemp)) {
+                    time = parsedTime;
+                    temp = parsedTemp;
+                    lastExplicitTime = time;
+                    intervalCounter = 1;
+                }
+            }
+            if (time !== null && temp !== null) {
+                const tempC = (units === 'F') ? toC(temp) : temp;
+                return { time, tempC: tempC };
+            }
+            return null;
+        }).filter(Boolean).sort((a, b) => a.time - b.time);
+}
+    function renderChart(tempDataC, rorDataC) {
+        const ctx = document.getElementById('roastCurveChart').getContext('2d');
+        if (roastChart) roastChart.destroy();
+       
+        const isF = (currentTempUnits === 'F');
+        const displayTempData = isF ? tempDataC.map(p => ({ time: p.time, temp: toF(p.tempC) })) : tempDataC.map(p => ({ time: p.time, temp: p.tempC }));
+        const displayRorData = isF ? rorDataC.map(p => ({ time: p.time, ror: p.rorC * 9 / 5 })) : rorDataC.map(p => ({ time: p.time, ror: p.rorC }));
+       
+        const tempLabel = `Roast Temp (°${currentTempUnits})`;
+        const rorLabel = `RoR (°${currentTempUnits}/min)`;
+
+        roastChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: tempLabel,
+                    data: displayTempData,
+                    parsing: { xAxisKey: 'time', yAxisKey: 'temp' },
+                    borderColor: 'rgba(211, 84, 0, 1)',
+                    yAxisID: 'y-temp',
+                    tension: 0.3
+                }, {
+                    label: rorLabel,
+                    data: displayRorData,
+                    parsing: { xAxisKey: 'time', yAxisKey: 'ror' },
+                    borderColor: 'rgba(41, 128, 185, 1)',
+                    yAxisID: 'y-ror',
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                 interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'top' },
+                    title: { display: true, text: 'Roast Curve Analysis' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) label += context.parsed.y.toFixed(1);
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: { display: true, text: 'Time' },
+                        ticks: { callback: value => formatSecondsToTime(value), stepSize: 60 }
+                    },
+                    'y-temp': {
+                        type: 'linear',
+                        position: 'left',
+                        title: { display: true, text: tempLabel },
+                        beginAtZero: false
+                    },
+                    'y-ror': {
+                        type: 'linear',
+                        position: 'right',
+                        title: { display: true, text: rorLabel },
+                        grid: { drawOnChartArea: false },
+                        suggestedMin: 0
+                    }
+                }
+            }
+        });
+    }
+
+    function getSensoryProfile(dtr, weightLoss, targetRoastLevel, parsedDataC = [], firstCrackSec = 0) {
+        const settings = loadSettings();
+        const target = settings[targetRoastLevel] || settings.Medium;
+        const desc = descriptiveProfiles[targetRoastLevel] || descriptiveProfiles.Medium;
+       
+        let score = 100, dtrImpression = "", wlImpression = "", generalImpression = "", strategy = "";
+
+        let avgRorAfterFC = 5.0;
+        const pointsAfterFC = parsedDataC.filter(p => p.time > firstCrackSec);
+        if (pointsAfterFC.length > 1) {
+            const rorAfterFC = [];
+            for(let i = 1; i < pointsAfterFC.length; i++) {
+                const timeDiff = pointsAfterFC[i].time - pointsAfterFC[i-1].time;
+                const tempDiffC = pointsAfterFC[i].tempC - pointsAfterFC[i-1].tempC;
+                if(timeDiff > 0) rorAfterFC.push(tempDiffC / timeDiff * 60);
+            }
+            if (rorAfterFC.length > 0) avgRorAfterFC = rorAfterFC.reduce((a, b) => a + b, 0) / rorAfterFC.length;
+        }
+
+        const [dtrLower, dtrUpper] = target.dtrRange;
+        if (dtr < dtrLower) {
+            score -= Math.min(30, (dtrLower - dtr) * 5);
+            dtrImpression = "Underdeveloped.";
+            strategy = "Strategy: Development was too short. Try cutting power more aggressively at 1C (e.g., P60 -> P50) to coast for longer.";
+        } else if (dtr > dtrUpper) {
+            score -= Math.min(25, (dtr - dtrUpper) * 4);
+            dtrImpression = "Overdeveloped/Baked.";
+            strategy = "Strategy: Development was too long (baked). Use a lower preheat or reduce power earlier *before* 1C to reduce momentum.";
+        }
+
+        if (avgRorAfterFC < 3.0 && dtr > 18) {
+            score -= 15;
+            generalImpression = "Warning: Roast may have stalled after First Crack (low RoR). ";
+            strategy = "Strategy: Roast stalled. Use more power *after* 1C (e.g., P65 'bridge') to maintain momentum.";
+        }
+
+        const [wlLower, wlUpper] = target.wlRange;
+        if (weightLoss < wlLower) {
+            score -= Math.min(15, (wlLower - weightLoss) * 4);
+            wlImpression = "Weight loss low.";
+        } else if (weightLoss > wlUpper) {
+            score -= Math.min(15, (weightLoss - wlUpper) * 3);
+            wlImpression = "Weight loss high.";
+        }
+
+        let finalScore = Math.max(0, Math.round(score));
+        let impression = "";
+        if (finalScore >= 95) {
+            impression = `An excellent ${targetRoastLevel.toLowerCase()} roast profile. ${generalImpression}`;
+            if (!strategy) strategy = "Strategy: Great roast! Lock in this file.";
+        } else if (finalScore >= 85) {
+            impression = `A solid roast profile. ${generalImpression} ${dtrImpression} ${wlImpression}`;
+            if (!strategy) strategy = "Strategy: Good roast. Aim for the center of the DTR & WL targets for a 95+ score.";
+        } else {
+            impression = `An off-target roast. ${generalImpression} ${dtrImpression} ${wlImpression} Flavor flaws likely.`;
+        }
+        if (dtr < 13 && finalScore < 70) impression = "CRITICAL FLAW: Severely underdeveloped (DTR < 13%). Likely sour and grassy.";
+        if (dtr > 32 && finalScore < 70) impression = "CRITICAL FLAW: Severely baked (DTR > 32%). Likely papery and flat.";
+
+        return {
+            rating: finalScore,
+            aroma: desc.aroma,
+            acidity: desc.acidity,
+            body: desc.body,
+            flavor: desc.flavor,
+            impression: impression.replace(/\s+/g, ' ').trim(),
+            strategy: strategy.replace(/\s+/g, ' ').trim()
+        };
+    }
+    function calculateDTR() {
+    const fc = document.getElementById('firstCrackTime').value;
+    const drop = document.getElementById('dropTime').value;
+    const dtrDisplay = document.getElementById('dtr');
+
+    if (!fc || !drop || !dtrDisplay) return;
+
+    const toSec = (timeStr) => {
+        const parts = timeStr.split(':');
+        if (parts.length === 2) {
+            return (parseInt(parts[0]) * 60) + parseInt(parts[1]);
+        }
+        return parseFloat(parts[0]) * 60;
+    };
+
+    const fcSec = toSec(fc);
+    const dropSec = toSec(drop);
+
+    if (dropSec > fcSec && fcSec > 0) {
+        const devTimeSec = dropSec - fcSec;
+        const dtrValue = (devTimeSec / dropSec) * 100;
+        dtrDisplay.value = dtrValue.toFixed(1) + '%';
+    } else {
+        dtrDisplay.value = '';
+    }
+}
+function importHistoryFromCSV(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const rows = text.split('\n').slice(1);
+        let history = JSON.parse(localStorage.getItem('roastHistory')) || [];
+
+        rows.forEach(row => {
+            if (!row.trim()) return;
+            const cols = row.split(','); // Simplified for now
+            if (cols.length >= 7) {
+                history.push({
+                    id: 'roast_' + Date.now() + Math.random(),
+                    roastDate: new Date(cols[0]).toISOString(),
+                    inputs: {
+                        roastName: cols[1].replace(/"/g, ''),
+                        beanName: cols[2].replace(/"/g, ''),
+                        firstCrackTime: cols[3],
+                        dropTime: cols[4],
+                        rating: parseInt(cols[7]) || 0,
+                        notes: cols[8] ? cols[8].replace(/"/g, '') : ''
+                    },
+                    outputs: {
+                        dtr: parseFloat(cols[5]),
+                        weightLoss: parseFloat(cols[6])
+                    }
+                });
+            }
+        });
+
+        localStorage.setItem('roastHistory', JSON.stringify(history));
+        renderHistoryList();
+        alert("Import successful!");
+    };
+    reader.readAsText(file);
+    }
+</script>
+<div class="text-center text-xs text-gray-400 mt-10 mb-6">
+        <p>&copy; 2025 Avy Coffee. All rights reserved.</p>
+        <p class="mt-1">Built by Kyle Andersen</p>
+    </div>
+</body>
+</html>
